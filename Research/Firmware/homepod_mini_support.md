@@ -259,8 +259,39 @@ while retaining keyboard and accessibility activation. Quick taps last at least
 700 ms after the guest acknowledges key-down. Timing from the mouse event can
 collapse a tap's down/up into adjacent RPCs when input delivery is delayed.
 This preserves a usable consumer-key hold for instantaneous mouse/AX taps.
-The center touch surface has no
-input mapping yet and is excluded from accessibility/tab navigation.
+The center touch surface sends consumer Play/Pause (`0x0C/0xCD`) and is
+included in accessibility and tab navigation. Its releases have no artificial
+minimum duration, preserving rapid taps for SoundBoard's native multi-tap
+recognizer. A 500 ms host hold emits a second down event with
+`KeyboardLongPress`, followed by an up event carrying the same flag. Releasing
+the control, losing focus or disconnecting cancels the pending hold timer.
+The hold transitions require the updated vphoned's `input.hid long_press`
+support; volume and ordinary center taps use the existing raw HID interface.
+
+### Center HID mapping (2026-10-23)
+
+`SBHPIOHID.handleHIDEvent:` in the extracted 27.0 (24J361) and 27.2 (24K120)
+SoundBoardFramework images accepts keyboard event type 3, consumer page 12.
+It maps usage `0xCD` to button 3 (Center), `0xE9` to Plus, `0xEA` to Minus,
+and reads down and long-press fields `0x30002` and `0x30005`.
+REA evidence: `ev_c06211a723a7d6257055f853e4d1ed982d84f08cce3e8980dd3af5205b02d6f2`
+(27.0), `ev_84c723a63651c2f7aba20a4ba81435d36d8bcfd514d86cd03c9a6219cc8eee45`
+(27.2). Image hashes are recorded in the SoundBoard controls/Sound Glow docs.
+`SBButtonInterface.SBIOHIDEventOccurred:` forwards ordinary releases to
+`SBTapGestureRecognizer`, long-press down to `holdBeganAtTime:`, and long-press
+up to `holdEndedAtTime:`. The host does not synthesize play/skip/Siri commands
+through the debug interface; SoundBoard owns gesture recognition and routing.
+The 500 ms threshold is a host interaction choice, not a recovered firmware
+timing constant. Apple's [IOHID keyboard event implementation](https://github.com/apple-oss-distributions/IOHIDFamily/blob/main/IOHIDFamily/IOHIDEvent.cpp)
+also distinguishes down from longPress.
+
+The AppKit input harness exercises the actual top-cap view's mouse/AX hit
+areas, three rapid tap pairs, long-press start/end, timer cancellation and
+unchanged volume timing. The native HID harness captures the actual encoder's
+IOKit calls and checks long-press on both transitions, sender identity,
+synchronous dispatch and unavailable-symbol handling. Both harnesses and the
+full VPhone bundle/admission build passed. This is local event validation;
+live playback, multi-tap actions and Siri activation have not been retested.
 
 ### Top-cap validation (2026-10-22)
 

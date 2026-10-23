@@ -371,6 +371,20 @@ enum GuestAPI {
         case "input.hid":
             let page = try integer(params, "page")
             let usage = try integer(params, "usage")
+            if let value = params["long_press"] {
+                guard let flag = value as? NSNumber, CFGetTypeID(flag) == CFBooleanGetTypeID() else {
+                    throw GuestAPIError.invalidRequest("long_press must be a boolean")
+                }
+                if flag.boolValue {
+                    guard (0...65535).contains(page), (0...65535).contains(usage),
+                          let down = params["down"] as? NSNumber, CFGetTypeID(down) == CFBooleanGetTypeID()
+                    else { throw GuestAPIError.invalidRequest("long_press requires a boolean down and 16-bit page and usage") }
+                    guard vp_hid_keyboard_hold(UInt16(page), UInt16(usage), down.boolValue) else {
+                        throw GuestAPIError.operationFailed("HID long-press injection is unavailable")
+                    }
+                    return ["page": page, "usage": usage, "action": down.boolValue ? "down" : "up", "long_press": true]
+                }
+            }
             if let down = params["down"] as? Bool {
                 return try hidEvent(page: page, usage: usage, down: down)
             }

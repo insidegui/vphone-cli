@@ -13,18 +13,26 @@ final class VPhoneHomePodDisplayView: NSView {
         case volumeDown
         case volumeUp
         case surface
+
+        /// SoundBoard's SBHPIOHID maps consumer Play/Pause to Center.
+        var usage: UInt32 {
+            switch self {
+            case .volumeDown: 0xEA
+            case .volumeUp: 0xE9
+            case .surface: 0xCD
+            }
+        }
+    }
+
+    struct ControlEvent {
+        let control: Control
+        let down: Bool
+        var minimumHold: Duration = .zero
+        var longPress = false
     }
 
     /// Paired transitions preserve a physical hold until pointer/key release.
-    var onControlChange: ((Control, Bool, Duration) -> Void)?
-    /// Enabled only when the caller has an evidenced guest touch mapping.
-    var surfaceControlEnabled = false {
-        didSet {
-            surface.isHidden = !surfaceControlEnabled
-            surface.setAccessibilityElement(surfaceControlEnabled)
-            plus.nextKeyView = surfaceControlEnabled ? surface : minus
-        }
-    }
+    var onControlChange: ((ControlEvent) -> Void)?
     private(set) var geometry: VPhoneHomePodDisplayGeometry?
     private(set) var displayFrame: VPhoneHomePodDisplayFrame?
 
@@ -38,16 +46,14 @@ final class VPhoneHomePodDisplayView: NSView {
         setAccessibilityElement(false)
         addSubview(canvas)
         for button in [surface, minus, plus] {
-            button.onChange = { [weak self] control, down, minimumHold in
-                self?.onControlChange?(control, down, minimumHold)
+            button.onChange = { [weak self] event in
+                self?.onControlChange?(event)
             }
             addSubview(button)
         }
         surface.nextKeyView = minus
         minus.nextKeyView = plus
-        plus.nextKeyView = minus
-        surface.isHidden = true
-        surface.setAccessibilityElement(false)
+        plus.nextKeyView = surface
         if let error = canvas.renderingError {
             let label = NSTextField(wrappingLabelWithString: "HomePod display unavailable: \(error)")
             label.translatesAutoresizingMaskIntoConstraints = false
@@ -126,8 +132,10 @@ final class VPhoneHomePodDisplayView: NSView {
 @MainActor
 private final class VPhoneHomePodCapControl: NSButton {
     let control: VPhoneHomePodDisplayView.Control
-    var onChange: ((VPhoneHomePodDisplayView.Control, Bool, Duration) -> Void)?
+    var onChange: ((VPhoneHomePodDisplayView.ControlEvent) -> Void)?
     private var isPressed = false
+    private var longPress = false
+    private var holdTask: Task<Void, Never>?
 
     init(control: VPhoneHomePodDisplayView.Control, label: String) {
         self.control = control
@@ -194,21 +202,35 @@ private final class VPhoneHomePodCapControl: NSButton {
     }
 
     private func finishPress() {
-        // Give even instantaneous mouse/AX taps a usable consumer-key hold.
-        // The queue measures this from the guest's key-down acknowledgement.
-        releaseControl(minimumHold: .milliseconds(700))
+        // Volume still needs a usable consumer-key hold. Center releases must
+        // stay immediate so SoundBoard can coalesce double and triple taps.
+        releaseControl(minimumHold: control == .surface ? .zero : .milliseconds(700))
     }
 
     private func pressControl() {
         guard !isPressed else { return }
         isPressed = true
-        onChange?(control, true, .zero)
+        longPress = false
+        onChange?(.init(control: control, down: true))
+        if control == .surface {
+            holdTask = Task { [weak self] in
+                do { try await Task.sleep(for: .milliseconds(500)) }
+                catch { return }
+                guard let self, isPressed else { return }
+                longPress = true
+                // SoundBoard requires KeyboardLongPress, not repeated taps.
+                onChange?(.init(control: control, down: true, longPress: true))
+            }
+        }
     }
 
     func releaseControl(minimumHold: Duration = .zero) {
         guard isPressed else { return }
         isPressed = false
-        onChange?(control, false, minimumHold)
+        holdTask?.cancel()
+        holdTask = nil
+        onChange?(.init(control: control, down: false, minimumHold: minimumHold, longPress: longPress))
+        longPress = false
     }
 
     // Visual markings belong to the optical shader; these views supply native

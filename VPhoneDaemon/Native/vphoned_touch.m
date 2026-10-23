@@ -35,6 +35,7 @@ static IOHIDEventRef (*pFinger)(CFAllocatorRef, uint64_t, uint32_t, uint32_t,
                                 IOHIDFloat, IOHIDFloat, boolean_t, boolean_t, uint32_t);
 static void (*pAppend)(IOHIDEventRef, IOHIDEventRef, uint32_t);
 static void (*pSetInt)(IOHIDEventRef, uint32_t, int);
+static IOHIDEventRef (*pKeyboard)(CFAllocatorRef, uint64_t, uint32_t, uint32_t, boolean_t, uint32_t);
 
 static IOHIDEventSystemClientRef gTouchClient;
 static dispatch_queue_t gTouchQueue;
@@ -74,6 +75,7 @@ bool vp_hid_load(void) {
     pFinger = dlsym(ioKit, "IOHIDEventCreateDigitizerFingerEvent");
     pAppend = dlsym(ioKit, "IOHIDEventAppendEvent");
     pSetInt = dlsym(ioKit, "IOHIDEventSetIntegerValue");
+    pKeyboard = dlsym(ioKit, "IOHIDEventCreateKeyboardEvent");
 
     if (!pCreate || !pSetSender || !pDispatch || !pDigitizer || !pFinger || !pAppend || !pSetInt) {
         NSLog(@"vphoned: digitizer symbols missing, touch injection disabled");
@@ -89,6 +91,21 @@ bool vp_hid_load(void) {
     dispatch_queue_attr_t attributes = dispatch_queue_attr_make_with_qos_class(
         DISPATCH_QUEUE_SERIAL, QOS_CLASS_USER_INTERACTIVE, 0);
     gTouchQueue = dispatch_queue_create("com.vphone.vphoned.touch", attributes);
+    return true;
+}
+
+bool vp_hid_keyboard_hold(uint16_t page, uint16_t usage, bool down) {
+    if (!vp_hid_load() || !pKeyboard) return false;
+    IOHIDEventRef event = pKeyboard(kCFAllocatorDefault, mach_absolute_time(), page, usage, down, 0);
+    if (!event) return false;
+    // The same built-in marker and sender as IcliKit's ordinary key events.
+    pSetInt(event, 4, 1);
+    // kIOHIDEventFieldKeyboardLongPress. SBHPIOHID reads this field for Center.
+    pSetInt(event, (3u << 16) | 5u, 1);
+    pSetSender(event, 0x8000000817319372);
+    // Input RPCs are ordered; finish dispatch before acknowledging the hold.
+    dispatch_sync(gTouchQueue, ^{ pDispatch(gTouchClient, event); });
+    CFRelease(event);
     return true;
 }
 

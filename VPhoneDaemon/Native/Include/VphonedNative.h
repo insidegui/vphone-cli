@@ -30,6 +30,8 @@ char *vp_homepod_debug_copy_json(const char *operation, const char *arguments_js
 /// safe to call more than once; returns false (injection then stays a no-op)
 /// on bases that do not expose the private symbols.
 bool vp_hid_load(void);
+/// A keyboard/consumer hold transition, including KeyboardLongPress on release.
+bool vp_hid_keyboard_hold(uint16_t page, uint16_t usage, bool down);
 
 /// Inject one two-finger digitizer event, the shape a trackpad pinch needs.
 /// Phase is 0 = down, 1 = move, 3 = up; coordinates are normalized 0..1 with

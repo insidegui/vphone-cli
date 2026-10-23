@@ -298,21 +298,22 @@ final class VPhoneGuestControl {
         sendHID(page: page, usage: usage, down: nil)
     }
 
-    func sendHIDDown(page: UInt32, usage: UInt32) {
-        sendHID(page: page, usage: usage, down: true)
+    func sendHIDDown(page: UInt32, usage: UInt32, longPress: Bool = false) {
+        sendHID(page: page, usage: usage, down: true, longPress: longPress)
     }
 
-    func sendHIDUp(page: UInt32, usage: UInt32, minimumHold: Duration = .zero) {
-        sendHID(page: page, usage: usage, down: false, minimumHold: minimumHold)
+    func sendHIDUp(page: UInt32, usage: UInt32, minimumHold: Duration = .zero, longPress: Bool = false) {
+        sendHID(page: page, usage: usage, down: false, minimumHold: minimumHold, longPress: longPress)
     }
 
     @ObservationIgnored private var heldHIDKeys: [UInt64: ContinuousClock.Instant] = [:]
 
-    private func sendHID(page: UInt32, usage: UInt32, down: Bool?, minimumHold: Duration = .zero) {
+    private func sendHID(page: UInt32, usage: UInt32, down: Bool?, minimumHold: Duration = .zero, longPress: Bool = false) {
         var params: [String: Any] = ["page": page, "usage": usage]
         if let down {
             params["down"] = down
         }
+        if longPress { params["long_press"] = true }
         let key = UInt64(page) << 32 | UInt64(usage)
         let previous = orderedInput
         orderedInput = Task {

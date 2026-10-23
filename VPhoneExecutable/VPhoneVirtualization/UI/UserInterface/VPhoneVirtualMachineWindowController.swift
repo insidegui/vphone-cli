@@ -65,19 +65,13 @@ class VPhoneVirtualMachineWindowController: NSObject, NSWindowDelegate {
         let container: NSView
         if homePodGuest {
             let cap = VPhoneHomePodDisplayView()
-            cap.onControlChange = { [weak self] button, down, minimumHold in
+            cap.onControlChange = { [weak self] event in
                 guard let control = self?.control else { return }
-                let usage: UInt32
-                switch button {
-                case .volumeUp: usage = 0xE9
-                case .volumeDown: usage = 0xEA
-                case .surface: return
-                }
-                if down {
+                if event.down {
                     guard control.isConnected else { return }
-                    control.sendHIDDown(page: 0x0C, usage: usage)
+                    control.sendHIDDown(page: 0x0C, usage: event.control.usage, longPress: event.longPress)
                 } else {
-                    control.sendHIDUp(page: 0x0C, usage: usage, minimumHold: minimumHold)
+                    control.sendHIDUp(page: 0x0C, usage: event.control.usage, minimumHold: event.minimumHold, longPress: event.longPress)
                 }
             }
             // Keep the diagnostic framebuffer attached for host automation,
