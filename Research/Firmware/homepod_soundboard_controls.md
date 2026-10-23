@@ -138,6 +138,39 @@ These host stubs verify marshaling; they do not establish SoundBoard XPC effects
 Detailed REA records, method encodings, enum tables and annotated cache
 disassembly are retained under `.build/homepod-ui-research/`.
 
+## User defaults browser (2026-10-23)
+
+Device Controls → HomePod → User Defaults opens a sheet populated by the
+guest's `getUserDefaults:` reply. The `info.decoded` SBSDefaultInfo metadata
+defines each row's name, description, Boolean/integer/floating-point/string
+editor, factory value, bounds and reinitialization hint. The native `mod`
+field identifies stored overrides, including overrides equal to the factory
+value. No host list of preference names is used; unknown types remain visible
+and read-only. Search matches names and descriptions, and Overrides Only
+filters on the native override state.
+
+Edits remain drafts until Save. Numeric input is finite, checked against the
+declared range, and integers preserve 64-bit precision. Set sends the native
+string argument through `setUserDefaults:withValue:`; Reset removes a single
+override through `resetUserDefault:`. Both setters report submission, so the
+model rereads the defaults for up to six attempts before confirming success.
+Unconfirmed writes retain their drafts and report the failed readback.
+Refreshing preserves other drafts; closing with edits asks before discarding.
+The HomePod section also offers Restart SoundBoard, using the existing
+`services.kickstart` operation for `com.apple.SoundBoard` with kill and force.
+No new guest operation or firmware patch is required.
+
+Validation used the owner's Copy Reply export (150 defaults) and an isolated
+simulated SoundBoard store. Tests cover all exported current values, string
+Booleans, bounds, large integers, unsupported metadata, duplicate rejection,
+search, draft retention, asynchronous save/reset, unconfirmed writes and
+readback errors. A captured guest connection checks restart's service label,
+kill/force arguments, disconnect guard and failure state. The actual SwiftUI
+sheet was reviewed with all 150 exported rows: search, Boolean save/reset,
+numeric range feedback, disabled invalid saves and discard confirmation.
+These UI checks used the simulated store and did not modify guest defaults.
+The full VPhone bundle build passed.
+
 ## Setup completion and inverse
 
 `system-homepod-exp-setup_bypass` is a declared optional patch, gated to HomePod

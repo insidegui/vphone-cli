@@ -71,6 +71,20 @@ final class VPhoneHomePodDebugModel {
         values = Dictionary(uniqueKeysWithValues: (selected?.arguments ?? []).map { ($0.name, $0.initial.editorText) })
     }
 
+    func restartSoundBoard() async {
+        guard !isBusy, control.isConnected else { return }
+        isBusy = true
+        error = nil
+        defer { isBusy = false }
+        do {
+            let response = try await control.call("services.kickstart", params: [
+                "label": "com.apple.SoundBoard", "kill": true, "force": true,
+            ])
+            let data = try JSONSerialization.data(withJSONObject: response, options: [.prettyPrinted, .sortedKeys])
+            result = String(decoding: data, as: UTF8.self)
+        } catch { self.error = String(describing: error) }
+    }
+
     func execute() async {
         guard !isBusy, control.isConnected, let operation = selected, operation.available else { return }
         isBusy = true

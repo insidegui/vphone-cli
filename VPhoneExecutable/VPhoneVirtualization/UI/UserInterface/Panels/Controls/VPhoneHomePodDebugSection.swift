@@ -2,6 +2,7 @@ import SwiftUI
 
 struct VPhoneHomePodDebugSection: View {
     @State private var model: VPhoneHomePodDebugModel
+    @State private var showsUserDefaults = false
 
     init(control: VPhoneGuestControl) {
         _model = State(initialValue: VPhoneHomePodDebugModel(control: control))
@@ -9,6 +10,18 @@ struct VPhoneHomePodDebugSection: View {
 
     var body: some View {
         Section("HomePod") {
+            HStack {
+                Button("User Defaults…") { showsUserDefaults = true }
+                Spacer()
+                Button("Restart SoundBoard") { Task { await model.restartSoundBoard() } }
+                    .disabled(!model.control.guestCapabilities.contains("service_kickstart"))
+            }
+            .disabled(model.isBusy || !model.control.isConnected || !model.control.guestCapabilities.contains("homepod_debug"))
+            .sheet(isPresented: $showsUserDefaults) {
+                VPhoneHomePodDefaultsView { operation, arguments in
+                    try await model.control.call("homepod.debug.call", params: ["operation": operation, "arguments": arguments])
+                }
+            }
             Picker("SoundBoard Debug Control", selection: $model.selectedID) {
                 ForEach(model.groups) { group in
                     Section(group.id) {

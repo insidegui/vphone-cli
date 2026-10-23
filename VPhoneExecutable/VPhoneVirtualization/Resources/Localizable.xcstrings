@@ -1,6 +1,43 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%lld of %lld defaults · %lld unsaved changes" : {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lld of %2$lld defaults · %3$lld unsaved changes"
+          }
+        }
+      }
+    },
+    "Change the search or filter to browse other defaults." : {},
+    "Default Value" : {},
+    "Discard Changes" : {},
+    "Discard Edit" : {},
+    "Discard unsaved changes?" : {},
+    "Done" : {},
+    "Edited" : {},
+    "Enabled" : {},
+    "HomePod User Defaults" : {},
+    "HomePod user defaults" : {},
+    "Maximum" : {},
+    "Metadata" : {},
+    "Minimum" : {},
+    "No Matching Defaults" : {},
+    "Override" : {},
+    "Overrides Only" : {},
+    "Read current values and metadata. Unsaved edits are preserved." : {},
+    "Reading defaults from SoundBoard…" : {},
+    "Remove this setting's override in SoundBoard." : {},
+    "Requires reinitialization; restart SoundBoard after applying this change." : {},
+    "Reset to Default" : {},
+    "Restart SoundBoard" : {},
+    "Search names and descriptions" : {},
+    "Stored Override" : {},
+    "This value type is available for browsing only." : {},
+    "User Defaults" : {},
+    "User Defaults…" : {},
     "Animation": {
     },
     "Commands without a reply report submission. SoundBoard applies them asynchronously.": {
