@@ -156,13 +156,17 @@ nonisolated struct VPhoneLaunchpadMachine: Decodable, Hashable, Identifiable, Se
         guestProductType?.hasPrefix("AudioAccessory") == true
     }
 
+    var isStudioDisplay: Bool {
+        guestProductType?.hasPrefix("AppleDisplay") == true
+    }
+
     var isWatch: Bool {
         guestProductType?.hasPrefix("Watch") == true
     }
 
     /// The guest OS name, including accessory and watch guests.
     var osName: String {
-        isHomePod ? "HomePod Software" : isWatch ? "watchOS" : isAppleTV ? "tvOS" : isPad ? "iPadOS" : "iOS"
+        isStudioDisplay ? "darwinOS" : isHomePod ? "HomePod Software" : isWatch ? "watchOS" : isAppleTV ? "tvOS" : isPad ? "iPadOS" : "iOS"
     }
 
     /// config.plist's `guestProductType`, else the product type in the name
@@ -179,7 +183,7 @@ nonisolated struct VPhoneLaunchpadMachine: Decodable, Hashable, Identifiable, Se
         let originals = folder.appendingPathComponent("FirmwareOriginals", isDirectory: true)
         let names = (try? FileManager.default.contentsOfDirectory(atPath: originals.path)) ?? []
         for name in names.sorted() where name.hasSuffix("_Restore") {
-            if let type = name.split(separator: "_").first(where: { $0.wholeMatch(of: /(iPhone|iPad|AppleTV|AudioAccessory|Watch)\d+,\d+/) != nil }) {
+            if let type = name.split(separator: "_").first(where: { $0.wholeMatch(of: /(iPhone|iPad|AppleTV|AudioAccessory|AppleDisplay|Watch)\d+,\d+/) != nil }) {
                 return String(type)
             }
         }
@@ -306,14 +310,18 @@ nonisolated struct VPhoneLaunchpadFirmwareCatalog: Decodable, Sendable {
             family == "homePod"
         }
 
-        /// HomePod and Apple TV do not use iOS templates or slimming.
+        var isStudioDisplay: Bool {
+            family == "studioDisplay"
+        }
+
+        /// Accessory and Apple TV guests do not use iOS templates or slimming.
         var requiresStandaloneRestore: Bool {
-            isAppleTV || isHomePod
+            isAppleTV || isHomePod || isStudioDisplay
         }
 
         /// The system its IPSWs install.
         var osName: String {
-            isHomePod ? "HomePod Software" : isWatch ? "watchOS" : isAppleTV ? "tvOS" : isPad ? "iPadOS" : "iOS"
+            isStudioDisplay ? "darwinOS" : isHomePod ? "HomePod Software" : isWatch ? "watchOS" : isAppleTV ? "tvOS" : isPad ? "iPadOS" : "iOS"
         }
 
         /// The name with its product type, `iPhone 16 (iPhone17,3)`: Launchpad

@@ -606,6 +606,27 @@ public enum VPhoneFirmwareCatalog {
         ),
     ]
 
+    /// Pallas DarwinAccessoryUpdate assets contain a complete restore tree,
+    /// rather than SoftwareUpdate's payloadv2 chunks. Keep them separate so
+    /// creation never attempts an OTA userland swap or a donor IPSW restore.
+    public static let darwinRestoreReleases: [VPhoneOTARelease] = [
+        .init(
+            productType: "AppleDisplay18,1",
+            version: "26.4",
+            build: "23E246",
+            url: "https://updates.cdn-apple.com/2026SpringFCS/mobileassets/696-22067/7953E680-D826-4586-B572-0929889C3872/com_apple_MobileAsset_DarwinAccessoryUpdate_A3348/43db9014f8e9818248f99f39479ca4520f010901c110dc7382e9af6aff283b1b.aea",
+            size: 1_375_731_712,
+            key: "dmANq/ti4z1YLvLuZ3hxpNqUaMW/YsMF16z0YQcH1Sc=",
+        ),
+    ]
+
+    public static func darwinRestoreRelease(source: String) -> VPhoneOTARelease? {
+        let name = (source as NSString).lastPathComponent
+        return darwinRestoreReleases.first {
+            $0.url == source || $0.fileName == name || (URL(string: $0.url)?.lastPathComponent == name)
+        }
+    }
+
     /// The full OTA of `productType` at `build`, or nil when the catalog has none.
     public static func otaRelease(for productType: String, build: String) -> VPhoneOTARelease? {
         otaReleases.first { $0.productType == productType && $0.build == build }
@@ -639,6 +660,12 @@ public enum VPhoneFirmwareCatalog {
     /// this Mac can build.
     public static func pairings(for device: String, hostMacOS: Int = VPhoneOTARelease.hostMacOS) -> [VPhoneFirmwarePairing] {
         guard let guest = VPhoneGuestDevice.named(device) else { return [] }
+        if guest.family == .studioDisplay {
+            return darwinRestoreReleases.filter { $0.productType == guest.productType }.map {
+                VPhoneFirmwarePairing(device: guest.productType, iosName: "darwinOS \($0.version)", iosURL: $0.url,
+                                      cloudosName: "cloudOS 26.4", cloudosURL: cloud264)
+            }
+        }
         if guest.notchedArtworkSubtype != nil {
             return iOS18ResearchBoardReleases.map { release in
                 VPhoneFirmwarePairing(
@@ -669,7 +696,7 @@ public enum VPhoneFirmwareCatalog {
             let cloudOS = switch guest.family {
             case .appleTV, .homePod: VPhoneCloudOSOption(name: "cloudOS 26.4", url: cloud264)
             case .watch: researchBoardCloudOS(forVersion: release.version) ?? recommendedCloudOS(forVersion: release.version)
-            case .iPhone, .iPad: recommendedCloudOS(forVersion: release.version)
+            case .iPhone, .iPad, .studioDisplay: recommendedCloudOS(forVersion: release.version)
             }
             return VPhoneFirmwarePairing(
                 device: guest.productType,
@@ -713,7 +740,7 @@ public enum VPhoneFirmwareCatalog {
     public static func report(hostMacOS: Int) -> VPhoneFirmwareCatalogReport {
         func entries(_ pairings: [VPhoneFirmwarePairing]) -> [VPhoneFirmwareCatalogReport.Entry] {
             pairings.map {
-                let ota = otaRelease(source: $0.iosURL)
+                let ota = otaRelease(source: $0.iosURL) ?? darwinRestoreRelease(source: $0.iosURL)
                 let base = ota.flatMap(restoreBaseURL(for:)).map { ($0 as NSString).lastPathComponent }
                 return .init(
                     ios: .init(

@@ -72,7 +72,7 @@ nonisolated struct VPhoneLaunchpadBundleReceipt: Codable, Equatable, Sendable {
 nonisolated enum VPhoneLaunchpadNames {
     /// Minimum bundle version for Launchpad's CLI and receipt contract.
     /// Series 2.13 adds the AppleTV18,1 OTA pairing and its 4K preset default.
-    private static let minimumBundleComponents = (2, 13, 0)
+    private static let minimumBundleComponents = (2, 14, 0)
     static let minimumBundleVersion =
         "\(minimumBundleComponents.0).\(minimumBundleComponents.1).\(minimumBundleComponents.2)"
 

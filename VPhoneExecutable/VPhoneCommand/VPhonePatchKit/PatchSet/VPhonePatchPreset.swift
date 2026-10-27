@@ -73,6 +73,7 @@ public struct VPhonePatchPreset: Sendable, Hashable, Codable, Identifiable {
 
     /// The identifier a VM gets when nothing asked for another preset.
     public static let standardIdentifier = "standard"
+    public static let darwinOSIdentifier = "darwinos"
 
     /// The identifier an Apple TV guest gets when nothing asked for another
     /// preset: standard without the iOS payloads tvOS has no port of.

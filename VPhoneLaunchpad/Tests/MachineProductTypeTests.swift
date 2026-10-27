@@ -36,6 +36,9 @@ struct MachineProductTypeTests {
         let homePod = root.appendingPathComponent("homepod-mini", isDirectory: true)
         try manager.createDirectory(at: homePod.appendingPathComponent("FirmwareOriginals/AudioAccessory5,1_27.0_24J361_Restore"), withIntermediateDirectories: true)
         expect(VPhoneLaunchpadMachine.guestProductType(in: homePod) == "AudioAccessory5,1", "HomePod restore tree")
+        let display = root.appendingPathComponent("studio-display-xdr", isDirectory: true)
+        try manager.createDirectory(at: display.appendingPathComponent("FirmwareOriginals/iPhoneOS_AppleDisplay18,1_26.4_23E246_Restore"), withIntermediateDirectories: true)
+        expect(VPhoneLaunchpadMachine.guestProductType(in: display) == "AppleDisplay18,1", "Studio Display restore tree")
         expect(VPhoneLaunchpadMachine.guestProductType(in: root.appendingPathComponent("missing")) == nil, "nothing to read")
 
 
@@ -57,6 +60,24 @@ struct MachineProductTypeTests {
         let homePodDevice = VPhoneLaunchpadFirmwareCatalog.Device(productType: "AudioAccessory5,1", name: "HomePod mini", family: "homePod", pairings: [])
         expect(homePodDevice.isHomePod && !homePodDevice.isAppleTV && homePodDevice.requiresStandaloneRestore, "HomePod catalog family")
         expect(homePodDevice.osName == "HomePod Software", "HomePod catalog OS label")
+
+        machine.guestProductType = VPhoneLaunchpadMachine.guestProductType(in: display)
+        expect(machine.isStudioDisplay && !machine.isHomePod && !machine.isAppleTV && machine.osName == "darwinOS", "Studio Display guest")
+        let displayDevice = VPhoneLaunchpadFirmwareCatalog.Device(productType: "AppleDisplay18,1", name: "Studio Display XDR", family: "studioDisplay", pairings: [])
+        expect(displayDevice.isStudioDisplay && displayDevice.requiresStandaloneRestore && displayDevice.osName == "darwinOS", "Studio Display catalog family")
+
+        // An explicit guest identity wins over any older retained restore tree.
+        try (["guestProductType": "AppleDisplay18,1"] as NSDictionary).write(to: pad.appendingPathComponent("config.plist"))
+        expect(VPhoneLaunchpadMachine.guestProductType(in: pad) == "AppleDisplay18,1", "Studio Display config wins over retained tree")
+
+        let accessoryCatalog = #"""
+        {"device":"iPhone17,3","pairings":[],"devices":[{"productType":"AppleDisplay18,1","name":"Studio Display XDR","family":"studioDisplay","pairings":[
+         {"ios":{"name":"darwinOS 26.4","url":"https://example.com/J427.aea","build":"23E246","files":["ota/AppleDisplay18,1_26.4_23E246_OTA.aea"]},"recommendedCloudOS":{"name":"cloudOS 26.4","url":"https://example.com/c"}}]}]}
+        """#
+        let j427 = try JSONDecoder().decode(VPhoneLaunchpadFirmwareCatalog.self, from: Data(accessoryCatalog.utf8)).guests[0]
+        expect(j427.isStudioDisplay && j427.pairings[0].build == "23E246", "Studio Display OTA catalog")
+        expect(j427.pairings[0].ios.files?.first == "ota/AppleDisplay18,1_26.4_23E246_OTA.aea", "Studio Display OTA file")
+        expect(j427.pairings[0].ios.files?.count == 1, "Studio Display restore asset needs no donor IPSW")
 
         // An OTA pairing's build comes from the bundle; an IPSW's from its name.
 

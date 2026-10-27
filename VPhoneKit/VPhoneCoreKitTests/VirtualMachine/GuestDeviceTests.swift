@@ -7,6 +7,16 @@ import Testing
 @Suite("Guest device")
 struct GuestDeviceTests {
     @Test
+    func `accessory cache locations follow filesystem layout rather than executable platform`() {
+        for device in [VPhoneGuestDevice.appleDisplay18_1, .appleTV5_3, .appleTV14_1, .audioAccessory5_1] {
+            #expect(device.dyldSharedCacheDirectory == "System/Library/Caches/com.apple.dyld")
+        }
+        for device in [VPhoneGuestDevice.iPhone17_3, .iPhone11_6, .iPad16_1, .watch7_18] {
+            #expect(device.dyldSharedCacheDirectory == "System/Cryptexes/OS/System/Library/Caches/com.apple.dyld")
+        }
+        #expect(!VPhoneGuestDevice.appleDisplay18_1.usesTVOS)
+    }
+    @Test
     func `a restore manifest names its device`() {
         #expect(VPhoneGuestDevice.detect(buildManifest: ["SupportedProductTypes": ["iPhone17,3"]]) == .iPhone17_3)
         #expect(VPhoneGuestDevice.detect(buildManifest: ["SupportedProductTypes": ["iPad16,1", "iPad16,2"]]) == .iPad16_1)
@@ -61,6 +71,31 @@ struct GuestDeviceTests {
         #expect(decoded.guestDevice == .audioAccessory5_1)
         #expect(decoded.screenConfig == .init(width: 320, height: 320, pixelsPerInch: 72, scale: 1.0))
         #expect(decoded.updating(cpuCount: 4).guestDevice == .audioAccessory5_1)
+    }
+
+    @Test
+    func `Studio Display XDR keeps its darwinOS identity and diagnostic canvas`() throws {
+        let device = try #require(VPhoneGuestDevice.named("AppleDisplay18,1"))
+        #expect(device == .appleDisplay18_1)
+        #expect(device.family == .studioDisplay && device.family.osName == "darwinOS")
+        #expect(device.productName == "Studio Display XDR")
+        #expect(device.deviceClass == "j427ap")
+        #expect(device.boardDeviceTreePath == "Firmware/all_flash/DeviceTree.j427ap.im4p")
+        #expect(device.presentsBoard && !device.isPad && !device.usesTVOS)
+        #expect(device.restoreBase == nil && !device.hasPlainArm64Userland)
+        #expect(VPhoneGuestDevice.detect(buildManifest: ["SupportedProductTypes": ["AppleDisplay18,1"]]) == device)
+        #expect(VPhoneGuestDevice.covered(by: ["SupportedProductTypes": ["AppleDisplay18,1"]]) == [device])
+        #expect(VPhoneGuestDevice.detect(buildManifest: ["SupportedProductTypes": ["AppleDisplay2,1"]]) == nil)
+        #expect(device.restoreTreeName(version: "26.4", build: "23E246") == "iPhoneOS_AppleDisplay18,1_26.4_23E246_Restore")
+        #expect(VPhoneResources.vphonedName(for: device.family) == "vphoned-darwinos")
+        let manifest = VPhoneVirtualMachineManifest.newVM().updating(guestDevice: device)
+        let decoded = try PropertyListDecoder().decode(
+            VPhoneVirtualMachineManifest.self, from: PropertyListEncoder().encode(manifest)
+        )
+        #expect(decoded.guestProductType == "AppleDisplay18,1")
+        #expect(decoded.guestDevice == device)
+        #expect(decoded.screenConfig == .init(width: 1280, height: 720, pixelsPerInch: 72, scale: 1.0))
+        #expect(decoded.updating(cpuCount: 4).guestDevice == device)
     }
 
     @Test

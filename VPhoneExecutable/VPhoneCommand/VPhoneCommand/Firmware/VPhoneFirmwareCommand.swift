@@ -223,12 +223,12 @@ struct VPhoneFirmwareCatalogCommand: ParsableCommand {
 struct VPhoneFirmwarePrepareCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "prepare",
-        abstract: "Download + merge IPSWs into a VM bundle",
+        abstract: "Download and merge guest firmware with cloudOS into a VM bundle",
     )
 
     @OptionGroup var lib: VPhoneLibraryOption
     @Argument(help: "VM name") var name: String?
-    @Option(name: .shortAndLong, help: "iPhone IPSW URL or local path") var iphoneSource: String?
+    @Option(name: .shortAndLong, help: "Guest IPSW or darwinOS restore asset URL or local path") var iphoneSource: String?
     @Option(name: .shortAndLong, help: "cloudOS IPSW URL or local path") var cloudosSource: String?
     @Option(help: "GPU driver bundle from the same cloudOS build, for offline AEA recovery")
     var gpuDriverBundle: String?

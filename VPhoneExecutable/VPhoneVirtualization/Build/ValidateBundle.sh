@@ -159,7 +159,7 @@ if /usr/bin/grep -q 'AVPSEPBooter-' "$resources/OpenSEP/OpenSEP.bin"; then
     exit 1
 fi
 
-for name in vphoned vphoned-tvos vphoned-watchos libvphonetvsetupfocus.dylib libswiftCompatibilitySpan.dylib launchdhook-vphone.dylib SystemHook-vphone.dylib libcamfix.dylib \
+for name in vphoned vphoned-tvos vphoned-watchos vphoned-darwinos libvphonetvsetupfocus.dylib libswiftCompatibilitySpan.dylib launchdhook-vphone.dylib SystemHook-vphone.dylib libcamfix.dylib \
     libvcamcaptured.dylib libmisfix.dylib libhapticsfix.dylib libbatteryhealthfix.dylib libdevicehubfix.dylib libdevicename.dylib \
     libprefsfix.dylib libsigninfix.dylib libvphonegyro.dylib libvphoneaccelerometer.dylib libvphoneattitude.dylib libvphonehomepoddisplay.dylib libvphonecryptexstaging.dylib libvphoneinstallpersona.dylib libvphonehomepodmisfix.dylib vphone-homepod-setup libAppleParavirtCompilerPluginIOGPUFamily.dylib; do
     require_signed_macho "$guest/$name"
@@ -183,7 +183,11 @@ daemon_rpaths="$(/usr/bin/otool -l "$guest/vphoned" | /usr/bin/awk '
 # The scripting session runs on JavaScriptCore, which watchOS does not ship.
 # IcliKit's probe opens it at run time, so the daemon names no JavaScriptCore
 # symbol; a reference would leave the watch guest without a daemon at all.
-for daemon in vphoned vphoned-tvos vphoned-watchos; do
+if /usr/bin/otool -L "$guest/vphoned-darwinos" | /usr/bin/grep -Eq '/(UIKit|AVFoundation|CoreLocation|JavaScriptCore)\.framework/'; then
+    print -u2 "The darwinOS research agent links a framework absent from darwinOS"
+    exit 1
+fi
+for daemon in vphoned vphoned-tvos vphoned-watchos vphoned-darwinos; do
     javascriptcore_loads="$(/usr/bin/otool -l "$guest/$daemon" | /usr/bin/awk '
         $1 == "cmd" { command = $2 }
         $1 == "name" && $2 ~ /JavaScriptCore/ { print command }
@@ -274,7 +278,7 @@ vm_entitlements="$(/usr/bin/codesign -d --entitlements - --xml "$macos/vphone-vm
     print -u2 "Guest daemon entitlements leaked into vphone-vm"
     exit 1
 }
-for daemon in vphoned vphoned-tvos vphoned-watchos; do
+for daemon in vphoned vphoned-tvos vphoned-watchos vphoned-darwinos; do
     daemon_entitlements="$(/usr/bin/codesign -d --entitlements - --xml "$guest/$daemon" 2>/dev/null)"
     [[ "$daemon_entitlements" == *'com.apple.CommCenter.fine-grained'* &&
         "$daemon_entitlements" != *'com.apple.private.virtualization'* ]] || {

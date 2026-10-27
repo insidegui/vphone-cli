@@ -152,8 +152,15 @@ enum VPhoneFirmwarePreparer {
         try fm.createDirectory(at: phoneTree, withIntermediateDirectories: false)
         try fm.createDirectory(at: cloudTree, withIntermediateDirectories: false)
 
-        print("[*] Extracting \(restored.productType) IPSW...")
-        try VPhoneArchiveExtractor.extract(phone.file, into: phoneTree, options: .intoHostDirectory)
+        print("[*] Extracting \(restored.productType) firmware...")
+        if device.family == .studioDisplay {
+            let release = VPhoneFirmwareCatalog.darwinRestoreReleases.first {
+                $0.productType == device.productType && $0.build == phone.build
+            }
+            try VPhoneDarwinRestoreArchive.extract(phone.file, key: release?.key, into: phoneTree)
+        } else {
+            try VPhoneArchiveExtractor.extract(phone.file, into: phoneTree, options: .intoHostDirectory)
+        }
         print("[*] Extracting cloudOS IPSW...")
         try VPhoneArchiveExtractor.extract(cloud.file, into: cloudTree, options: .intoHostDirectory)
 

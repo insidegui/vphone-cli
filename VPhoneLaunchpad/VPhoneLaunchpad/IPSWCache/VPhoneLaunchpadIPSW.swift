@@ -9,7 +9,7 @@ import Foundation
 /// manifest cannot be read.
 nonisolated struct VPhoneLaunchpadIPSW: Hashable, Sendable {
     enum Kind: Hashable, Sendable {
-        case iPhone, iPad, appleTV, homePod, watch, cloudOS, unknown
+        case iPhone, iPad, appleTV, homePod, studioDisplay, watch, cloudOS, unknown
 
         /// The system the IPSW installs: the first word of its title.
         var systemName: String? {
@@ -18,6 +18,7 @@ nonisolated struct VPhoneLaunchpadIPSW: Hashable, Sendable {
             case .iPad: "iPadOS"
             case .appleTV: "tvOS"
             case .homePod: "HomePod Software"
+            case .studioDisplay: "darwinOS"
             case .watch: "watchOS"
             case .cloudOS: "cloudOS"
             case .unknown: nil
@@ -54,6 +55,9 @@ nonisolated struct VPhoneLaunchpadIPSW: Hashable, Sendable {
         }
         if productTypes.contains(where: { $0.hasPrefix("AudioAccessory") }) {
             return .homePod
+        }
+        if productTypes.contains(where: { $0.hasPrefix("AppleDisplay") }) {
+            return .studioDisplay
         }
         if productTypes.contains(where: { $0.hasPrefix("Watch") }) {
             return .watch
@@ -127,10 +131,14 @@ nonisolated struct VPhoneLaunchpadIPSW: Hashable, Sendable {
     /// The facts an IPSW's name carries: `iPhone17,3_27.0_24A435_Restore.ipsw`,
     /// `iPad16,1,iPad16,2_26.6.2_23G90_Restore.ipsw`, and the cache's spelling
     /// of either, `iPhone17_3_27.0_24A435_Restore-3c6d6dc0803d.ipsw`.
+    /// A named full OTA, `AppleDisplay18,1_26.4_23E246_OTA.aea`, also carries
+    /// enough identity for the custom-source creation workflow.
     init?(fileName: String) {
         var stem = fileName
         if stem.lowercased().hasSuffix(".ipsw") {
             stem = String(stem.dropLast(5))
+        } else if stem.lowercased().hasSuffix(".aea") || stem.lowercased().hasSuffix(".zip") {
+            stem = String(stem.dropLast(4))
         }
         // The cache appends a dash and twelve hex digits of the URL's digest.
         if let dash = stem.lastIndex(of: "-") {
@@ -140,7 +148,9 @@ nonisolated struct VPhoneLaunchpadIPSW: Hashable, Sendable {
             }
         }
         let fields = stem.split(separator: "_", omittingEmptySubsequences: false).map(String.init)
-        guard let restore = fields.lastIndex(where: { $0.caseInsensitiveCompare("Restore") == .orderedSame }),
+        guard let restore = fields.lastIndex(where: {
+            $0.caseInsensitiveCompare("Restore") == .orderedSame || $0.caseInsensitiveCompare("OTA") == .orderedSame
+        }),
               restore >= 3
         else {
             return nil

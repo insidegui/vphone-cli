@@ -1,6 +1,15 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Studio Display" : {
+      "localizations" : {
+        "en" : {"stringUnit" : {"state" : "translated", "value" : "Studio Display"}},
+        "ja" : {"stringUnit" : {"state" : "translated", "value" : "Studio Display"}},
+        "ko" : {"stringUnit" : {"state" : "translated", "value" : "Studio Display"}},
+        "vi" : {"stringUnit" : {"state" : "translated", "value" : "Studio Display"}},
+        "zh-Hans" : {"stringUnit" : {"state" : "translated", "value" : "Studio Display"}}
+      }
+    },
     "Apple TV" : {
       "localizations" : {
         "en" : {"stringUnit" : {"state" : "translated", "value" : "Apple TV"}},

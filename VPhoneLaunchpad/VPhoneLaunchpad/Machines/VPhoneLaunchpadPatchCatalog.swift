@@ -294,9 +294,13 @@ nonisolated struct VPhoneLaunchpadPatchSelection: Hashable, Sendable {
     /// The HomePod mini's arm64e userland has a preset of its own.
     static let homePodMiniPreset = "homepod-mini"
 
+    /// darwinOS accessory userland without the iPhone display environment.
+    static let darwinOSPreset = "darwinos"
+
     /// The preset a new machine of `productType` starts from.
     static func defaultPreset(forDevice productType: String?) -> String {
         switch productType {
+        case "AppleDisplay18,1": darwinOSPreset
         case "AudioAccessory5,1": homePodMiniPreset
         case "AppleTV14,1", "AppleTV18,1": tvOS4KPreset
         case let type? where type.hasPrefix("AppleTV"): tvOSPreset

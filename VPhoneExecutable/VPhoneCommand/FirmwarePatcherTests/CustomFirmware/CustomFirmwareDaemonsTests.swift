@@ -281,6 +281,46 @@ struct CustomFirmwareDaemonsTests {
     }
 
     @Test
+    func `darwinOS admits its complete iphoneos monolithic erase image only`() throws {
+        let directory = try CustomFirmwareDaemonsFixtures.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "BuildManifest.plist")
+        var entries: PlistDict = [:]
+        for component in ["OS", "SystemVolume", "StaticTrustCache", "Ap,SystemVolumeCanonicalMetadata"] {
+            entries[component] = ["Info": ["Path": "Firmware/\(component).img"]] as PlistDict
+        }
+        func write(products: [String] = ["AppleDisplay18,1"], platform: String = "iphoneos", behavior: String = "Erase", entries: PlistDict) throws {
+            try CustomFirmwareDaemons.savePlist([
+                "SupportedProductTypes": products,
+                "BuildIdentities": [[
+                    "Ap,SDKPlatform": platform,
+                    "Ap,OSEnvironment": "0x05",
+                    "Info": ["RestoreBehavior": behavior, "DeviceClass": "j427ap"],
+                    "Manifest": entries,
+                ] as PlistDict],
+            ], to: url)
+        }
+        try write(entries: entries)
+        #expect(try CustomFirmwareDaemons.filesystemLayout(buildManifest: url) == .monolithic)
+        for products in [["AppleDisplay2,1"], ["AppleDisplay18,1", "AppleDisplay2,1"], ["AppleDisplay18,1", "AudioAccessory5,1"], []] {
+            try write(products: products, platform: products.contains("AudioAccessory5,1") ? "appletvos" : "iphoneos", entries: entries)
+            #expect(throws: CustomFirmwareDaemons.DaemonError.self) { try CustomFirmwareDaemons.filesystemLayout(buildManifest: url) }
+        }
+        try write(behavior: "Update", entries: entries)
+        #expect(throws: CustomFirmwareDaemons.DaemonError.self) { try CustomFirmwareDaemons.filesystemLayout(buildManifest: url) }
+        var partialCryptex = entries
+        partialCryptex["Cryptex1,SystemOS"] = ["Info": ["Path": "SystemOS.dmg"]] as PlistDict
+        try write(entries: partialCryptex)
+        #expect(throws: CustomFirmwareDaemons.DaemonError.self) { try CustomFirmwareDaemons.filesystemLayout(buildManifest: url) }
+        for component in ["OS", "SystemVolume", "StaticTrustCache", "Ap,SystemVolumeCanonicalMetadata"] {
+            var missing = entries
+            missing.removeValue(forKey: component)
+            try write(entries: missing)
+            #expect(throws: CustomFirmwareDaemons.DaemonError.self) { try CustomFirmwareDaemons.filesystemLayout(buildManifest: url) }
+        }
+    }
+
+    @Test
     func `monolithic image paths and platform remain validated`() throws {
         let directory = try CustomFirmwareDaemonsFixtures.temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -292,6 +332,9 @@ struct CustomFirmwareDaemonsTests {
             ("AudioAccessory5,1", "iphoneos", "OS.dmg"),
             ("AudioAccessory5,1", "appletvos", "../OS.dmg"),
             ("AudioAccessory5,1", "appletvos", "/OS.dmg"),
+            ("AppleDisplay18,1", "appletvos", "OS.dmg"),
+            ("AppleDisplay18,1", "iphoneos", "../OS.dmg"),
+            ("AppleDisplay18,1", "iphoneos", "/OS.dmg"),
         ] {
             var entries: PlistDict = [:]
             for component in ["OS", "SystemVolume", "StaticTrustCache", "Ap,SystemVolumeCanonicalMetadata"] {

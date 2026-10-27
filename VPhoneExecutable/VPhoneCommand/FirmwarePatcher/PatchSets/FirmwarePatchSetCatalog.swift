@@ -425,6 +425,39 @@ public enum FirmwarePatchSetCatalog {
         ),
     )
 
+    /// Accessory research keeps the PCC boot/kernel patches and the donor's
+    /// identity, with a Foundation-only agent. No iOS UI, camera, audio,
+    /// activation, shared-cache or environment injection belongs in darwinOS.
+    public static let darwinOSGuestPatches: Set<String> = [
+        "system-vphoned-boot-install",
+        "system-launchd_cache_loader-boot-unsecure_cache_gate",
+        "system-seputil-boot-gigalocker_uuid",
+        "system-gigalocker-boot-rename",
+    ]
+
+    public static let darwinOSDeviceTreePatches: Set<String> = [
+        "devicetree-cfw-serial_number",
+        "devicetree-cfw-ipad_artwork",
+        "devicetree-cfw-ipad_product",
+        "devicetree-cfw-ipad_buttons",
+        "devicetree-cfw-ipad_identity",
+        "devicetree-cfw-product_haptics_node",
+        "devicetree-cfw-product_audio_microphone_array",
+    ]
+
+    public static let darwinOSPreset = VPhonePatchPreset(
+        identifier: VPhonePatchPreset.darwinOSIdentifier,
+        title: "Studio Display XDR",
+        summary: "Research: darwinOS restore asset with the PCC boot chain, the display's board identity and a headless research agent. Native accessory services are retained; USB and Thunderbolt hardware are not emulated.",
+        patchSets: bundledReferences,
+        selection: .block(
+            manualOnlyPatches
+                .union(Set(allDeclarations.filter { !$0.target.isBootChain }.map(\.identifier)).subtracting(darwinOSGuestPatches))
+                .union(Set(FirmwareDeviceTreePatchSet.manifest.patches.map(\.identifier)).subtracting(darwinOSDeviceTreePatches))
+                .union([proMotionPatch, paravirtTask3Patch]),
+        ),
+    )
+
     /// The presets the bundle ships.
-    public static let builtInPresets: [VPhonePatchPreset] = [standardPreset, experimentalPreset, tvOSPreset, tvOS4KPreset, homePodMiniPreset, minimalPreset, watchOSPreset]
+    public static let builtInPresets: [VPhonePatchPreset] = [standardPreset, experimentalPreset, tvOSPreset, tvOS4KPreset, homePodMiniPreset, darwinOSPreset, minimalPreset, watchOSPreset]
 }

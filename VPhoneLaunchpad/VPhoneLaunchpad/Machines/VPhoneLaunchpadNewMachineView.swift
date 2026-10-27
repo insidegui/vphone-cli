@@ -441,7 +441,8 @@ struct VPhoneLaunchpadNewMachineView: View {
     /// Whether the pairing's iOS or iPadOS IPSW is downloaded, under the name
     /// `fw prepare` gives it or its own.
     private func isDownloaded(_ pairing: VPhoneLaunchpadFirmwareCatalog.Pairing) -> Bool {
-        // An OTA pairing needs the OTA and the IPSW it is restored over.
+        // The catalog lists every source asset: the OTA alone for a complete
+        // accessory restore, or the OTA and a donor IPSW for userland swaps.
         if let files = pairing.ios.files {
             return !files.isEmpty && files.allSatisfy(downloaded.contains)
         }
@@ -843,9 +844,10 @@ struct VPhoneLaunchpadNewMachineView: View {
         usesCustomSources ? customGuestProductType : selectedGuest?.productType
     }
 
-    /// Apple TV and HomePod are restored without iOS templates or slimming.
+    /// Apple TV and accessories are restored without iOS templates or slimming.
     private var requiresStandaloneRestore: Bool {
         guestProductType?.hasPrefix("AppleTV") == true || guestProductType?.hasPrefix("AudioAccessory") == true
+            || guestProductType?.hasPrefix("AppleDisplay") == true
     }
 
     private func applyGuestDefaults(previousProductType: String?) {
@@ -913,7 +915,7 @@ struct VPhoneLaunchpadNewMachineView: View {
             iphoneSource: iphone,
             cloudOSSource: cloudOS,
             // An iPad IPSW often covers two sizes; name the one chosen.
-            // Apple TV and HomePod are named too, so the restore tree identifies them.
+            // Apple TV and accessories are named too, so the restore tree identifies them.
             device: guestProductType,
             cpuCount: cpu,
             memoryMB: memoryMB,

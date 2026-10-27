@@ -1,5 +1,17 @@
 # Patch Comparison: Regular / Development / Jailbreak / Experimental
 
+> **Studio Display XDR darwinOS bring-up (2026-10-27).** The `darwinos`
+> preset selects the existing PCC boot/kernel patches, donor board identity,
+> launchd cache-loader gate, seputil/Gigalocker repair and a dedicated
+> `vphoned-darwinos`. It excludes iOS UI, activation, camera, audio, shared-cache
+> and environment injection patches. No new instruction patch or kernel offset
+> is introduced. Pallas `DarwinAccessoryUpdate.A3348` build `23E246` carries a
+> complete restore asset, not SoftwareUpdate payload chunks; preparation
+> combines its monolithic System image with cloudOS 26.4's boot components.
+> Native accessory daemons remain intact. Physical USB/Thunderbolt controllers
+> are not emulated. See [Studio Display XDR](Firmware/studio_display_xdr_support.md)
+> for the reveal procedure, research transport and validation boundaries.
+
 > **Apple TV RootHide bootstrap and environment hooks (2026-10-26).** No new
 > declaration or instruction patch. An arm64e Apple TV now admits
 > `system-launchdaemons-boot-environment` and

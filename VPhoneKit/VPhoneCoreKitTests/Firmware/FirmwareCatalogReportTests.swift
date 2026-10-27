@@ -3,6 +3,36 @@ import Testing
 @testable import VPhoneCoreKit
 
 struct FirmwareCatalogReportTests {
+    @Test func `Studio Display XDR offers its complete darwinOS restore asset without a donor IPSW`() throws {
+        let release = try #require(VPhoneFirmwareCatalog.darwinRestoreReleases.first { $0.productType == "AppleDisplay18,1" })
+        #expect(release.version == "26.4" && release.build == "23E246")
+        #expect(release.size == 1_375_731_712)
+        #expect(Data(base64Encoded: try #require(release.key))?.count == 32)
+        #expect(release.fileName == "AppleDisplay18,1_26.4_23E246_OTA.aea")
+        #expect(release.url.contains("com_apple_MobileAsset_DarwinAccessoryUpdate_A3348/"))
+        #expect(VPhoneFirmwareCatalog.restoreBaseURL(for: release) == nil)
+        #expect(!VPhoneFirmwareCatalog.otaReleases.contains { $0.productType == release.productType })
+        #expect(VPhoneFirmwareCatalog.otaRelease(source: release.url) == nil)
+        #expect(VPhoneFirmwareCatalog.darwinRestoreRelease(source: release.url) == release)
+        #expect(VPhoneFirmwareCatalog.darwinRestoreRelease(source: "/cache/ota/\(release.fileName)") == release)
+        #expect(VPhoneFirmwareCatalog.darwinRestoreRelease(source: "/downloads/\(try #require(URL(string: release.url)?.lastPathComponent))") == release)
+        #expect(VPhoneFirmwareCatalog.darwinRestoreRelease(source: "AppleDisplay18,1_26.3_unknown_OTA.aea") == nil)
+        let pairings = VPhoneFirmwareCatalog.pairings(for: release.productType, hostMacOS: 26)
+        #expect(pairings.count == 1)
+        let pairing = try #require(pairings.first)
+        #expect(pairing.device == "AppleDisplay18,1" && pairing.iosName == "darwinOS 26.4")
+        #expect(pairing.iosURL == release.url && pairing.cloudosName == "cloudOS 26.4")
+        #expect(pairing.matchingCloudOS == nil)
+        let report = VPhoneFirmwareCatalog.report(hostMacOS: 26)
+        let device = try #require(report.devices.first { $0.productType == release.productType })
+        #expect(device.family == "studioDisplay" && device.name == "Studio Display XDR")
+        #expect(device.pairings.count == 1)
+        let asset = try #require(device.pairings.first?.ios)
+        #expect(asset.build == "23E246")
+        #expect(asset.files == ["ota/\(release.fileName)"])
+        #expect(asset.url == release.url)
+    }
+
     @Test func `maps every pairing`() {
         let report = VPhoneFirmwareCatalog.report
         #expect(report.device == VPhoneFirmwareCatalog.device)

@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Guest Device
 
-/// The Apple device whose restore IPSW supplies the guest's OS image.
+/// The Apple device whose restore firmware supplies the guest's OS image.
 ///
 /// The boot chain, kernel, SEP and device tree always come from the PCC
 /// `vresearch101ap` / `vphone600ap` identities. Only the userland changes with
@@ -20,6 +20,7 @@ public struct VPhoneGuestDevice: Sendable, Equatable {
         case iPad
         case appleTV
         case homePod
+        case studioDisplay
         case watch
 
         public var osName: String {
@@ -28,6 +29,7 @@ public struct VPhoneGuestDevice: Sendable, Equatable {
             case .iPad: "iPadOS"
             case .appleTV: "tvOS"
             case .homePod: "HomePod Software"
+            case .studioDisplay: "darwinOS"
             case .watch: "watchOS"
             }
         }
@@ -69,6 +71,14 @@ public struct VPhoneGuestDevice: Sendable, Equatable {
 
     public var usesTVOS: Bool {
         family.usesTVOS
+    }
+
+    /// Accessory restore assets keep their cache directly on System. They do
+    /// not carry the iPhone's OS cryptex, regardless of executable platform.
+    public var dyldSharedCacheDirectory: String {
+        usesTVOS || family == .studioDisplay
+            ? "System/Library/Caches/com.apple.dyld"
+            : "System/Cryptexes/OS/System/Library/Caches/com.apple.dyld"
     }
 
     /// Whether the guest boots a device tree of its own that presents this
@@ -233,6 +243,16 @@ public struct VPhoneGuestDevice: Sendable, Equatable {
         screen: .init(width: 320, height: 320, pixelsPerInch: 72, scale: 1.0),
     )
 
+    /// Studio Display XDR (J427AP). This is a diagnostic framebuffer for the
+    /// accessory OS's boot/update indicators, not the host-driven display panel.
+    public static let appleDisplay18_1 = VPhoneGuestDevice(
+        family: .studioDisplay,
+        productType: "AppleDisplay18,1",
+        deviceClass: "j427ap",
+        productName: "Studio Display XDR",
+        screen: .init(width: 1280, height: 720, pixelsPerInch: 72, scale: 1.0),
+    )
+
     /// Apple Watch Series 11 (GPS), 46 mm: 416x496 at 330 ppi, 208x248 points.
     /// The research board's kernel boots it with the watchOS kexts of its IPSW
     /// (the `watch` kernelcache recipe); N227b's device tree supplies the watch
@@ -274,6 +294,7 @@ public struct VPhoneGuestDevice: Sendable, Equatable {
         iPad17_1, iPad17_3,
         appleTV5_3, appleTV14_1, appleTV18_1,
         audioAccessory5_1,
+        appleDisplay18_1,
         watch7_18,
     ]
 
@@ -310,7 +331,7 @@ public struct VPhoneGuestDevice: Sendable, Equatable {
     public func restoreTreeName(version: String, build: String) -> String {
         switch family {
         case .iPhone: "\(productType)_\(version)_\(build)_Restore"
-        case .iPad, .appleTV, .homePod, .watch: "iPhoneOS_\(productType)_\(version)_\(build)_Restore"
+        case .iPad, .appleTV, .homePod, .studioDisplay, .watch: "iPhoneOS_\(productType)_\(version)_\(build)_Restore"
         }
     }
 

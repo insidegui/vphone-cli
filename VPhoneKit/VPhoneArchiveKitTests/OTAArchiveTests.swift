@@ -677,4 +677,127 @@ struct OTAArchiveTests {
         #expect(name.hasPrefix("9daea812-") && name.hasSuffix(".aea"))
         #expect(name != VPhoneOTAArchive.cacheName(for: try #require(URL(string: "https://other.example/9daea812.aea"))))
     }
+
+    // MARK: - darwinOS restore assets
+
+    private func darwinRestoreEntries() throws -> [Entry] {
+        let manifest = try PropertyListSerialization.data(fromPropertyList: [
+            "ProductVersion": "26.4",
+            "ProductBuildVersion": "23E246",
+            "SupportedProductTypes": ["AppleDisplay18,1"],
+            "BuildIdentities": [[
+                "Ap,OSEnvironment": "0x05",
+                "Info": ["DeviceClass": "j427ap", "Variant": "Darwin Customer Install"],
+                "Manifest": [
+                    "OS": ["Info": ["Path": "system.dmg.aea"]],
+                    "DeviceTree": ["Info": ["Path": "Firmware/all_flash/DeviceTree.j427ap.im4p"]],
+                ],
+            ]],
+        ], format: .xml, options: 0)
+        return [
+            .file("Info.plist", Data("outer asset metadata".utf8)),
+            .file("AssetData/BuildManifest.plist", manifest),
+            .file("AssetData/Restore.plist", Data("restore".utf8)),
+            .file("AssetData/SystemVersion.plist", Data("system version".utf8)),
+            .file("AssetData/system.dmg.aea", Data("encrypted system image retained verbatim".utf8)),
+            .file("AssetData/Firmware/all_flash/DeviceTree.j427ap.im4p", Data("J427 tree".utf8)),
+        ]
+    }
+
+    @Test func `darwinOS restore asset metadata and images survive native AEA extraction`() throws {
+        let root = try makeRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let file = root.appendingPathComponent("renamed-firmware.bin")
+        try encrypt(encode([.segment("E", try darwinRestoreEntries())], in: root), to: file, with: key)
+        let archive = try VPhoneIPSWCache.inspect(file, decryptionKey: keyText)
+        #expect(archive.version == "26.4")
+        #expect(archive.build == "23E246")
+        #expect(archive.productTypes == ["AppleDisplay18,1"])
+        #expect(archive.deviceClasses == ["j427ap"])
+        #expect(try VPhoneIPSWCache.localArchive(file.path, in: root, decryptionKey: keyText)?.build == "23E246")
+        let destination = root.appendingPathComponent("restore")
+        #expect(try VPhoneDarwinRestoreArchive.extract(file, key: keyText, into: destination) == 5)
+        #expect(try Data(contentsOf: destination.appendingPathComponent("system.dmg.aea")) == Data("encrypted system image retained verbatim".utf8))
+        #expect(try Data(contentsOf: destination.appendingPathComponent("Firmware/all_flash/DeviceTree.j427ap.im4p")) == Data("J427 tree".utf8))
+        #expect(!FileManager.default.fileExists(atPath: destination.appendingPathComponent("AssetData").path))
+        #expect(!FileManager.default.fileExists(atPath: destination.appendingPathComponent("Info.plist").path))
+        #expect(throws: (any Swift.Error).self) {
+            try VPhoneDarwinRestoreArchive.buildManifest(of: file, key: Data(repeating: 0, count: 32).base64EncodedString())
+        }
+        #expect(throws: (any Swift.Error).self) { try VPhoneIPSWCache.inspect(file) }
+    }
+
+    @Test func `renamed darwinOS restore assets use authenticated catalog keys`() throws {
+        let root = try makeRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let release = try #require(VPhoneFirmwareCatalog.darwinRestoreReleases.first)
+        let catalogKey = try VPhoneOTAArchive.symmetricKey(try #require(release.key))
+        let file = root.appendingPathComponent("unrecognized-local-name")
+        try encrypt(encode(try darwinRestoreEntries(), in: root), to: file, with: catalogKey)
+        #expect(try VPhoneIPSWCache.inspect(file).productTypes == ["AppleDisplay18,1"])
+        #expect(VPhoneIPSWCache.cacheName(for: try #require(URL(string: release.url))) == release.fileName)
+    }
+
+    @Test func `cached darwinOS metadata uses the OTA folder and refuses a wrong length`() throws {
+        let root = try makeRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let release = try #require(VPhoneFirmwareCatalog.darwinRestoreReleases.first)
+        let catalogKey = try VPhoneOTAArchive.symmetricKey(try #require(release.key))
+        let directory = root.appendingPathComponent("ota", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        let file = directory.appendingPathComponent(release.fileName)
+        try encrypt(encode(try darwinRestoreEntries(), in: root), to: file, with: catalogKey)
+        #expect(try VPhoneIPSWCache.inspect(file).build == "23E246")
+        // Readable metadata is not enough: this tiny fixture has not completed
+        // the catalog asset's download. A read-only cache lookup leaves it alone.
+        #expect(try VPhoneIPSWCache.localArchive(release.url, in: root) == nil)
+        #expect(FileManager.default.fileExists(atPath: file.path))
+        #expect(try VPhoneIPSWCache.localArchive(file.path, in: root)?.build == "23E246")
+    }
+
+    @Test func `darwinOS extraction rejects traversal duplicates and parent-file collisions atomically`() throws {
+        let root = try makeRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let originals = try darwinRestoreEntries()
+        let badMembers: [[Entry]] = [
+            [.file("AssetData/../../escaped", Data())],
+            [.file("AssetData/system.dmg.aea", Data())],
+            [.file("AssetData/extra/child", Data()), .file("AssetData/extra", Data())],
+            [.file("AssetData/other", Data()), .file("AssetData/other/child", Data())],
+        ]
+        for bad in badMembers {
+            let file = root.appendingPathComponent("\(UUID().uuidString).aar")
+            try encode(originals + bad, in: root).write(to: file)
+            let destination = root.appendingPathComponent("restore")
+            try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: false)
+            #expect(throws: (any Swift.Error).self) { try VPhoneDarwinRestoreArchive.extract(file, into: destination) }
+            #expect(try FileManager.default.contentsOfDirectory(atPath: destination.path).isEmpty)
+            try FileManager.default.removeItem(at: destination)
+        }
+        #expect(!FileManager.default.fileExists(atPath: root.deletingLastPathComponent().appendingPathComponent("escaped").path))
+        #expect(try FileManager.default.contentsOfDirectory(atPath: root.path).allSatisfy { !$0.hasPrefix(".darwin-restore-") })
+    }
+
+    @Test func `darwinOS archive symlinks cannot redirect extraction or supply required images`() throws {
+        let root = try makeRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let outside = root.appendingPathComponent("outside")
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: false)
+        let file = root.appendingPathComponent("links.aar")
+        try encode([.symlink("AssetData/Firmware", outside.path)] + darwinRestoreEntries(), in: root).write(to: file)
+        let destination = root.appendingPathComponent("restore")
+        try VPhoneDarwinRestoreArchive.extract(file, into: destination)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: outside.path).isEmpty)
+        #expect(try destination.appendingPathComponent("Firmware").resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink != true)
+
+        let missing = root.appendingPathComponent("missing.aar")
+        let withoutSystem = try darwinRestoreEntries().filter { entry in
+            if case .file("AssetData/system.dmg.aea", _) = entry { return false }
+            return true
+        }
+        try encode(withoutSystem + [.symlink("AssetData/system.dmg.aea", outside.path)], in: root).write(to: missing)
+        #expect(throws: VPhoneDarwinRestoreArchive.Error.self) {
+            try VPhoneDarwinRestoreArchive.extract(missing, into: root.appendingPathComponent("missing-restore"))
+        }
+    }
 }

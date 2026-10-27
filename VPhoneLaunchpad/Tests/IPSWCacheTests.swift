@@ -51,6 +51,12 @@ struct IPSWCacheTests {
         expect(VPhoneLaunchpadIPSW.productType(forSource: "/tmp/AudioAccessory5,1_27.0_24J361_Restore.ipsw") == "AudioAccessory5,1", "custom HomePod source name")
         expect(VPhoneLaunchpadIPSW.productType(forSource: "https://example.com/AudioAccessory5,1_27.0_24J361_Restore.ipsw") == "AudioAccessory5,1", "remote HomePod source name")
 
+        let display = VPhoneLaunchpadIPSW(fileName: "AppleDisplay18,1_26.4_23E246_OTA.aea")
+        expect(display?.productTypes == ["AppleDisplay18,1"], "Studio Display OTA product type")
+        expect(display?.kind == .studioDisplay && display?.title == "darwinOS 26.4 (23E246)", "Studio Display OTA title")
+        expect(VPhoneLaunchpadIPSWRows.kindLabel(.studioDisplay) == "Studio Display", "Studio Display family label")
+        expect(VPhoneLaunchpadIPSW.productType(forSource: "/tmp/AppleDisplay18,1_26.4_23E246_OTA.aea") == "AppleDisplay18,1", "named local Studio Display OTA")
+
         let cachedPad = VPhoneLaunchpadIPSW(fileName: "iPad16_1_iPad16_2_26.6.2_23G90_Restore-0123456789ab.ipsw")
         expect(cachedPad?.productTypes == ["iPad16,1", "iPad16,2"], "\(String(describing: cachedPad?.productTypes))")
 
@@ -141,6 +147,13 @@ struct IPSWCacheTests {
         expect(homePodFacts.kind == .homePod, "HomePod manifest kind")
         expect(VPhoneLaunchpadIPSW.productType(forSource: homePod.path) == "AudioAccessory5,1", "renamed local HomePod source")
         expect(VPhoneLaunchpadIPSW.productType(forSource: homePod.absoluteString) == "AudioAccessory5,1", "HomePod file URL source")
+
+        let displayFacts = VPhoneLaunchpadIPSW(manifest: [
+            "ProductVersion": "26.4", "ProductBuildVersion": "23E246",
+            "SupportedProductTypes": ["AppleDisplay18,1"],
+            "BuildIdentities": [["Info": ["DeviceClass": "j427ap"]]],
+        ])
+        expect(displayFacts?.kind == .studioDisplay && displayFacts?.title == "darwinOS 26.4 (23E246)", "Studio Display manifest metadata")
 
         let notZip = root.appendingPathComponent("broken.ipsw")
         try Data(repeating: 0, count: 4096).write(to: notZip)

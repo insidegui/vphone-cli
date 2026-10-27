@@ -61,13 +61,18 @@ public enum VPhoneIPSWCache {
         in cacheDirectory: URL,
         session: URLSession = URLSession(configuration: .ephemeral),
         connections: Int = defaultDownloadConnections,
+        decryptionKey: String? = nil,
         progress: (@Sendable (Int64, Int64) -> Void)? = nil,
     ) async throws -> Archive {
+        let release = VPhoneFirmwareCatalog.darwinRestoreRelease(source: source)
+        let decryptionKey = decryptionKey ?? release?.key
+        let cacheDirectory = release == nil ? cacheDirectory
+            : cacheDirectory.appendingPathComponent(VPhoneOTARelease.cacheDirectoryName, isDirectory: true)
         guard let url = URL(string: source), let scheme = url.scheme?.lowercased() else {
-            return try inspect(URL(fileURLWithPath: source))
+            return try inspect(URL(fileURLWithPath: source), decryptionKey: decryptionKey)
         }
         if scheme == "file" {
-            return try inspect(url)
+            return try inspect(url, decryptionKey: decryptionKey)
         }
         guard scheme == "http" || scheme == "https" else {
             throw Error.unsupportedSource(source)
@@ -80,7 +85,7 @@ public enum VPhoneIPSWCache {
         try VPhoneHostFilePermissions.makeDirectoryAccessible(at: cacheDirectory)
         removeAbandonedDownloads(in: cacheDirectory)
         let cache = cacheDirectory.appendingPathComponent(cacheName(for: url))
-        if let valid = try reuse(cache, in: cacheDirectory) {
+        if let valid = try reuse(cache, in: cacheDirectory, decryptionKey: decryptionKey, expectedSize: release?.size) {
             return valid
         }
 
@@ -91,12 +96,16 @@ public enum VPhoneIPSWCache {
         }
         try await download(url, into: pending, session: session, connections: connections, progress: progress)
 
-        let metadata = try inspect(pending)
+        if let expected = release?.size {
+            let actual = try fm.attributesOfItem(atPath: pending.path)[.size] as? Int64 ?? 0
+            guard actual == expected else { throw Error.incompleteDownload(url, expected: expected, actual: actual) }
+        }
+        let metadata = try inspect(pending, decryptionKey: decryptionKey)
         do {
             try fm.moveItem(at: pending, to: cache)
         } catch {
             // Another machine's prepare finished the same URL first.
-            if let valid = try reuse(cache, in: cacheDirectory) {
+            if let valid = try reuse(cache, in: cacheDirectory, decryptionKey: decryptionKey, expectedSize: release?.size) {
                 return valid
             }
             throw error
@@ -118,32 +127,43 @@ public enum VPhoneIPSWCache {
     /// (the caller then looks elsewhere, such as a template recorded with the
     /// same source); a local file that exists but is not an IPSW still
     /// throws. Nothing is written or removed.
-    public static func localArchive(_ source: String, in cacheDirectory: URL) throws -> Archive? {
+    public static func localArchive(_ source: String, in cacheDirectory: URL, decryptionKey: String? = nil) throws -> Archive? {
+        let release = VPhoneFirmwareCatalog.darwinRestoreRelease(source: source)
+        let decryptionKey = decryptionKey ?? release?.key
+        let cacheDirectory = release == nil ? cacheDirectory
+            : cacheDirectory.appendingPathComponent(VPhoneOTARelease.cacheDirectoryName, isDirectory: true)
         guard let url = URL(string: source), let scheme = url.scheme?.lowercased() else {
-            return try inspectIfPresent(URL(fileURLWithPath: source))
+            return try inspectIfPresent(URL(fileURLWithPath: source), decryptionKey: decryptionKey)
         }
         if scheme == "file" {
-            return try inspectIfPresent(url)
+            return try inspectIfPresent(url, decryptionKey: decryptionKey)
         }
         guard scheme == "http" || scheme == "https" else {
             throw Error.unsupportedSource(source)
         }
         let cache = cacheDirectory.appendingPathComponent(cacheName(for: url))
         guard FileManager.default.fileExists(atPath: cache.path) else { return nil }
-        return try? inspect(cache)
+        if let expected = release?.size,
+           (try FileManager.default.attributesOfItem(atPath: cache.path)[.size] as? Int64) != expected { return nil }
+        return try? inspect(cache, decryptionKey: decryptionKey)
     }
 
     /// A local IPSW, or nil when nothing is at its path (a dangling link
     /// included).
-    private static func inspectIfPresent(_ file: URL) throws -> Archive? {
+    private static func inspectIfPresent(_ file: URL, decryptionKey: String?) throws -> Archive? {
         guard FileManager.default.fileExists(atPath: file.path) else { return nil }
-        return try inspect(file)
+        return try inspect(file, decryptionKey: decryptionKey)
     }
 
     /// The cached archive when it is readable; an unreadable one is removed.
-    private static func reuse(_ cache: URL, in _: URL) throws -> Archive? {
+    private static func reuse(_ cache: URL, in _: URL, decryptionKey: String?, expectedSize: Int64?) throws -> Archive? {
         guard FileManager.default.fileExists(atPath: cache.path) else { return nil }
-        guard let valid = try? inspect(cache) else {
+        if let expectedSize,
+           (try FileManager.default.attributesOfItem(atPath: cache.path)[.size] as? Int64) != expectedSize {
+            try FileManager.default.removeItem(at: cache)
+            return nil
+        }
+        guard let valid = try? inspect(cache, decryptionKey: decryptionKey) else {
             try FileManager.default.removeItem(at: cache)
             return nil
         }
@@ -168,9 +188,22 @@ public enum VPhoneIPSWCache {
     }
 
     /// The IPSW's BuildManifest, read without unpacking anything else.
-    public static func buildManifest(of file: URL) throws -> [String: Any] {
+    public static func buildManifest(of file: URL, decryptionKey: String? = nil) throws -> [String: Any] {
         guard FileManager.default.fileExists(atPath: file.path) else {
             throw Error.missingFile(file)
+        }
+        if try VPhoneDarwinRestoreArchive.isArchive(file) {
+            // The catalog key also recognizes a renamed local archive by its
+            // authenticated contents. No filename is trusted as device identity.
+            if let decryptionKey {
+                return try VPhoneDarwinRestoreArchive.buildManifest(of: file, key: decryptionKey)
+            }
+            let named = VPhoneFirmwareCatalog.darwinRestoreRelease(source: file.path)?.key
+            let keys = [named].compactMap { $0 } + VPhoneFirmwareCatalog.darwinRestoreReleases.compactMap(\.key)
+            for key in Set(keys) {
+                if let manifest = try? VPhoneDarwinRestoreArchive.buildManifest(of: file, key: key) { return manifest }
+            }
+            return try VPhoneDarwinRestoreArchive.buildManifest(of: file)
         }
         guard let data = try? VPhoneArchiveReader.readMember("BuildManifest.plist", from: file),
               let plist = try? PropertyListSerialization.propertyList(from: data, format: nil)
@@ -181,8 +214,8 @@ public enum VPhoneIPSWCache {
         return plist
     }
 
-    public static func inspect(_ file: URL) throws -> Archive {
-        let plist = try buildManifest(of: file)
+    public static func inspect(_ file: URL, decryptionKey: String? = nil) throws -> Archive {
+        let plist = try buildManifest(of: file, decryptionKey: decryptionKey)
         guard let version = plist["ProductVersion"] as? String, !version.isEmpty,
               let build = plist["ProductBuildVersion"] as? String, !build.isEmpty
         else {
@@ -648,6 +681,7 @@ public enum VPhoneIPSWCache {
     }
 
     static func cacheName(for url: URL) -> String {
+        if let release = VPhoneFirmwareCatalog.darwinRestoreRelease(source: url.absoluteString) { return release.fileName }
         let base = url.lastPathComponent
         let stem = base.lowercased().hasSuffix(".ipsw") ? String(base.dropLast(5)) : base
         let safe = String(stem.prefix(48).unicodeScalars.map { scalar in

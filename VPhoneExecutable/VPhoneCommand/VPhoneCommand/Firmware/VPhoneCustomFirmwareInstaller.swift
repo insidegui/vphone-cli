@@ -287,6 +287,17 @@ struct VPhoneCustomFirmwareInstaller {
             }
             guard saved else { throw ValidationError("OTA update needs a stopped disk/SEP/NVRAM snapshot.") }
         }
+        if device.family == .studioDisplay {
+            guard let plan else {
+                throw ValidationError("darwinOS installation requires an explicit patch plan. Run fw patch with the darwinos preset first.")
+            }
+            let unsupported = Set(plan.enabledPatches)
+                .intersection(FirmwareGuestPatchResolution.guestTargetIdentifiers)
+                .subtracting(FirmwarePatchSetCatalog.darwinOSGuestPatches)
+            guard unsupported.isEmpty else {
+                throw ValidationError("These guest patches have no darwinOS port: \(unsupported.sorted().joined(separator: ", ")). Use the darwinos preset.")
+            }
+        }
         if device.usesTVOS {
             guard let plan else {
                 throw ValidationError("tvOS installation needs an explicit patch plan. Resolve a TV selection with `fw set-patches` and `fw patch` first.")
@@ -1434,11 +1445,9 @@ struct VPhoneCustomFirmwareInstaller {
         //    still has the stock 6 GiB and must still be refused. A VM with no
         //    kernelcache receipt falls back to the patch's applicability, the
         //    27.x base.
-        // The selected TV donor has a native arm64 cache. Keep its directory
-        // intact; cryptex symlinks would point into images it does not ship.
-        let cacheRelative = guestDevice.usesTVOS
-            ? "System/Library/Caches/com.apple.dyld"
-            : "System/Cryptexes/OS/System/Library/Caches/com.apple.dyld"
+        // Monolithic accessory systems have no OS cryptex. Executable
+        // platform alone cannot select the filesystem layout (darwinOS is iOS).
+        let cacheRelative = guestDevice.dyldSharedCacheDirectory
         let cacheArchitecture = guestDevice.hasPlainArm64Userland ? "arm64" : "arm64e"
         let dsc = try verifiedDyldCacheDirectory(system: system, relative: cacheRelative)
         let widenedRegion = kernelPatches.map { $0.contains("kernel-boot-shared_region_size") }
@@ -2402,7 +2411,7 @@ struct VPhoneCustomFirmwareInstaller {
             let manifest = work.file("iPhone-BuildManifest.plist")
             try restore.readData("iPhone-BuildManifest.plist").write(to: manifest)
             guard case let .cryptex(paths) = try CustomFirmwareDaemons.filesystemLayout(buildManifest: manifest) else {
-                print("[*] Monolithic tvOS system image: no cryptex files to install")
+                print("[*] Monolithic system image: no cryptex files to install")
                 return
             }
             // Root attaches and decrypts only private copies of the images,

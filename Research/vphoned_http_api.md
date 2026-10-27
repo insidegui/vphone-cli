@@ -298,6 +298,17 @@ finish before closing the opposite socket, with a five-second drain limit.
 
 ## Scripting sessions
 
+Studio Display XDR darwinOS uses the separate `vphoned-darwinos` target.
+Its `shell` capability opens a JSON RPC console, because this firmware has
+neither `/bin/sh` nor JavaScriptCore. Enter an ordinary request such as
+`{"method":"device.info","params":{}}`; `.exit` ends the session. Native
+programs can be run with `proc.run {path, args?, input?}` through HTTP RPC or
+the console, or as an explicit PTY program session. This agent advertises
+only device information, files, processes, services, ports and shell access.
+It provides no scripting engine, app/input/display APIs or physical
+USB/Thunderbolt emulation. See
+[Studio Display XDR](Firmware/studio_display_xdr_support.md).
+
 A guest has no shell, and the `tvos` preset has neither debugserver nor any
 Frida patch, so a script run with vphoned's own identity is the only way to
 reach what the guest keeps to itself. The engine is IcliKit's probe (icli

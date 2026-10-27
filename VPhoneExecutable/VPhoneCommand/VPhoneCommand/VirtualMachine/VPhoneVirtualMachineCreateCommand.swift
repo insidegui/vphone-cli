@@ -43,7 +43,7 @@ struct VPhoneVirtualMachineCreateCommand: ParsableCommand {
 
     @OptionGroup var lib: VPhoneLibraryOption
     @Argument(help: "new VM name") var name: String
-    @Option(name: .shortAndLong, help: "iPhone IPSW URL or local path") var iphoneSource: String?
+    @Option(name: .shortAndLong, help: "Guest IPSW or darwinOS restore asset URL or local path") var iphoneSource: String?
     @Option(name: .shortAndLong, help: "cloudOS IPSW URL or local path") var cloudosSource: String?
     @Option(help: "GPU driver bundle from the same cloudOS build, for offline AEA recovery")
     var gpuDriverBundle: String?
@@ -106,8 +106,8 @@ struct VPhoneVirtualMachineCreateCommand: ParsableCommand {
         } ?? VPhoneResources.ipswCacheDirectory()
     }
 
-    private var usesTVOS: Bool {
-        selectedGuest?.usesTVOS == true
+    private var requiresStandaloneRestore: Bool {
+        selectedGuest?.usesTVOS == true || selectedGuest?.family == .studioDisplay
     }
 
     /// A preset that customises the system before the restore (`minimal`): the
@@ -128,6 +128,8 @@ struct VPhoneVirtualMachineCreateCommand: ParsableCommand {
             guest.restoreBase == nil ? VPhonePatchPreset.tvOSIdentifier : VPhonePatchPreset.tvOS4KIdentifier
         case let guest? where guest.family == .homePod:
             VPhonePatchPreset.homePodMiniIdentifier
+        case let guest? where guest.family == .studioDisplay:
+            VPhonePatchPreset.darwinOSIdentifier
         case let guest? where guest.family == .watch:
             VPhonePatchPreset.watchOSIdentifier
         case let guest? where guest.notchedArtworkSubtype != nil:
@@ -138,6 +140,10 @@ struct VPhoneVirtualMachineCreateCommand: ParsableCommand {
     }
 
     mutating func validate() throws {
+        if device == nil, let iphoneSource,
+           let release = VPhoneFirmwareCatalog.darwinRestoreRelease(source: iphoneSource) {
+            inferredProductType = release.productType
+        }
         // Named templates reject firmware options below and need no IPSW read.
         // localArchive also recognizes an existing cached remote source without
         // downloading or changing the cache.
@@ -158,13 +164,13 @@ struct VPhoneVirtualMachineCreateCommand: ParsableCommand {
            VPhoneGuestDevice.named(device)?.family != .homePod {
             throw ValidationError("--ota-source and --ota-key require an OTA userland device, such as --device AppleTV14,1 or AudioAccessory5,1.")
         }
-        if usesTVOS {
+        if requiresStandaloneRestore {
             // Templates and their setup boot drive iOS Setup Assistant and its apps.
             if template != nil {
-                throw ValidationError("A tvOS or HomePod guest is built without a template; --template cannot be used.")
+                throw ValidationError("This accessory guest is built without a template; --template cannot be used.")
             }
             if try !slimming.request.isEmpty {
-                throw ValidationError("A tvOS or HomePod guest is built without a template; the slimming switches do not apply.")
+                throw ValidationError("This accessory guest is built without a template; the slimming switches do not apply.")
             }
         }
         if customisesRestoredSystem {
@@ -199,7 +205,7 @@ struct VPhoneVirtualMachineCreateCommand: ParsableCommand {
         let unlocks = try unlockAtStartup.map { try VPhoneVirtualMachineConfigCommand.parseSwitch($0, option: "--unlock-at-startup") }
         let templateUse: VPhoneVirtualMachineCreator.TemplateUse = if let template {
             .identifier(template)
-        } else if noTemplate || usesTVOS || customisesRestoredSystem {
+        } else if noTemplate || requiresStandaloneRestore || customisesRestoredSystem {
             .none
         } else {
             .automatic

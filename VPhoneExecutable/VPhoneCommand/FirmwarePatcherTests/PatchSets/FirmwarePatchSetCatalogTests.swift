@@ -141,6 +141,13 @@ struct FirmwarePatchSetCatalogTests {
                     let restoreImagePresets = [VPhonePatchPreset.minimalIdentifier, VPhonePatchPreset.watchOSIdentifier]
                     let expected = if tvPresets.contains(preset.identifier) {
                         Set(plan.droppedBootEssentials).isSubset(of: FirmwarePatchSetCatalog.tvOSBlockedPatches)
+                    } else if preset.identifier == VPhonePatchPreset.darwinOSIdentifier {
+                        Set(plan.droppedBootEssentials).isDisjoint(with: FirmwarePatchSetCatalog.darwinOSGuestPatches)
+                            && plan.droppedBootEssentials.allSatisfy { identifier in
+                                FirmwarePatchSetCatalog.allDeclarations.contains {
+                                    $0.identifier == identifier && !$0.target.isBootChain
+                                }
+                            }
                     } else if restoreImagePresets.contains(preset.identifier) {
                         Set(plan.droppedBootEssentials).isDisjoint(with: FirmwarePatchSetCatalog.minimalBootChainPatches)
                             && plan.droppedBootEssentials.allSatisfy {
@@ -156,6 +163,38 @@ struct FirmwarePatchSetCatalogTests {
                 }
             }
         }
+    }
+
+    @Test
+    func `darwinOS keeps research access without modifying accessory UI or host communication services`() throws {
+        let preset = FirmwarePatchSetCatalog.darwinOSPreset
+        #expect(preset.identifier == VPhonePatchPreset.darwinOSIdentifier)
+        #expect(preset.patchSets == FirmwarePatchSetCatalog.bundledReferences)
+        let plan = try VPhonePatchPlan.resolve(
+            preset: preset,
+            patchSets: FirmwarePatchSetCatalog.bundled,
+            iOSBase: VPhoneVersion("26.4"),
+            cloudOS: VPhoneVersion("26.4"),
+        )
+        let enabled = Set(plan.enabled)
+        let allowedGuest: Set<String> = [
+            "system-vphoned-boot-install",
+            "system-launchd_cache_loader-boot-unsecure_cache_gate",
+            "system-seputil-boot-gigalocker_uuid",
+            "system-gigalocker-boot-rename",
+        ]
+        #expect(FirmwarePatchSetCatalog.darwinOSGuestPatches == allowedGuest)
+        #expect(allowedGuest.isSubset(of: enabled))
+        let guestDeclarations = FirmwarePatchSetCatalog.allDeclarations.filter { !$0.target.isBootChain }
+        #expect(Set(guestDeclarations.map(\.identifier)).intersection(enabled) == allowedGuest)
+        let boardDeclarations = Set(FirmwareDeviceTreePatchSet.manifest.patches.map(\.identifier))
+        #expect(boardDeclarations.intersection(enabled) == FirmwarePatchSetCatalog.darwinOSDeviceTreePatches)
+        #expect(!enabled.contains(FirmwarePatchSetCatalog.proMotionPatch))
+        #expect(!enabled.contains(FirmwarePatchSetCatalog.paravirtTask3Patch))
+        #expect(!enabled.contains { $0.hasPrefix("dyld-") || $0.hasPrefix("system-homepod-") || $0.hasPrefix("system-tv-") })
+        #expect(!enabled.contains("system-launchdaemons-boot-environment"))
+        #expect(!enabled.contains("system-extensions-boot-gpu_bundle"))
+        #expect(!enabled.contains("system-mobileactivationd-boot-should_hactivate"))
     }
 
     @Test

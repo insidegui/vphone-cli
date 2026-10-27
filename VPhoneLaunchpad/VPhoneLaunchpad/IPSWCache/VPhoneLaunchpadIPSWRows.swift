@@ -138,9 +138,10 @@ nonisolated enum VPhoneLaunchpadIPSWRows {
         case .iPad: 1
         case .appleTV: 2
         case .homePod: 3
-        case .watch: 4
-        case .cloudOS: 5
-        case .unknown: 6
+        case .studioDisplay: 4
+        case .watch: 5
+        case .cloudOS: 6
+        case .unknown: 7
         }
     }
 
@@ -162,6 +163,7 @@ nonisolated enum VPhoneLaunchpadIPSWRows {
         case .iPad: String(localized: "iPad")
         case .appleTV: String(localized: "Apple TV")
         case .homePod: String(localized: "HomePod")
+        case .studioDisplay: String(localized: "Studio Display")
         case .watch: String(localized: "Apple Watch")
         case .cloudOS: String(localized: "cloudOS")
         case .unknown: String(localized: "Unknown")
