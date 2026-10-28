@@ -1,7 +1,7 @@
 # Studio Display SSH access
 
-The `darwinos` preset installs a native Dropbear SSH server and dash POSIX
-shell, without Irisin or any guest UI. Start a Studio Display VM normally, then
+The `darwinos` preset installs a native Dropbear SSH server, dash POSIX
+shell and basic Unix utilities, without Irisin or any guest UI. Start a Studio Display VM normally, then
 run `vphone-cli vm ssh <name>`. A trailing command runs noninteractively, for
 example `vphone-cli vm ssh <name> 'printf hello'`. The command waits up to 30
 seconds for SSH provisioning during boot and invokes the Mac's `/usr/bin/ssh`.
@@ -10,7 +10,7 @@ An existing machine needs `cfw update-environment` with the new bundle before
 the next boot. Merely updating vphoned does not install the server or shell.
 The new declaration `system-ssh-exp-studio_display` is enabled only by the
 darwinOS preset on 26.4. Blocking it and updating the environment removes the
-three native binaries and launchd job; its private Data-volume credentials are
+native binaries, utility links and launchd job; its private Data-volume credentials are
 retained for reuse. Other shipped presets leave it off.
 
 ## Transport and authentication
@@ -48,11 +48,11 @@ go to `/private/var/log/vphone-ssh.log`.
 
 ## Components and compatibility
 
-The build compiles pinned upstream Dropbear and dash sources with Xcode's
+The build compiles pinned upstream Dropbear, dash and Toybox sources with Xcode's
 iPhoneOS SDK for arm64e / iOS 26.4. They link only libSystem, which darwinOS
 ships. Dropbear uses its bundled static crypto implementations. Licensing and
 source provenance are retained beside the source archives and shipped with the
-guest resources. No interpreter, Homebrew library, network download or package
+guest resources. No external interpreter, Homebrew library, network download or package
 manager is needed at runtime.
 
 The darwinOS port resolves libSystem's native fork export, since the iPhoneOS
@@ -60,8 +60,28 @@ SDK marks it unavailable to applications. It uses a full fork for dash's vfork
 optimization too. Dropbear's only authentication adaptation selects its own
 installed shell rather than changing `/etc/passwd` or `/etc/shells`. SSH protocol,
 key verification, PTY modes, terminal sizing, signals and command execution
-remain upstream implementations. This supplies a shell, not a complete Unix
-utilities distribution; SFTP and package installation are outside this payload.
+remain upstream implementations. SFTP and package installation are outside
+this payload.
+
+## Unix tools
+
+The shell environment includes the Darwin-portable subset of Toybox 0.8.15:
+file commands such as `ls`, `cat`, `cp`, `mv`, `rm`, `mkdir`, `touch`, `find`,
+`stat`, `chmod` and `ln`; text tools such as `grep`, `sed`, `awk`, `tr`, `sort`,
+`uniq`, `cut`, `head`, `tail`, `wc` and `xargs`; plus `tar`, `gzip`, `gunzip`,
+`sleep`, `date`, `id`, checksums, `nc` and the `vi` editor. `toybox` lists the
+available applets; individual commands support `--help`.
+
+One signed native binary and relative command symlinks live under
+`/usr/local/libexec/vphone-ssh/bin`. The SSH PATH searches Apple's system
+directories first, retaining the native `ps` and `df`. No Apple executable is
+overwritten and no Linux `/proc`-based tools are substituted for Darwin's
+process tools. Updating the guest environment refreshes this private directory;
+turning the SSH declaration off removes it with the rest of the payload.
+
+Toybox uses the existing native fork bridge. Its awk `system()` and pipe
+operations use Toybox's process helpers and the installed dash, because this
+firmware has no `/bin/sh`. The utility binary also links only libSystem.
 
 ## Validation (2026-10-28)
 
@@ -97,7 +117,20 @@ the host's only SSH listener is `127.0.0.1` on its assigned port. Verified:
 
 The source configuration uses upstream's session-time account switch because
 Darwin has no `setresgid` for Dropbear's early privilege-drop mode. Root-only
-admission is enforced independently. The guest ships few external utilities;
-for example `sleep` is absent. Shell builtins and the programs actually present
-in the guest remain available; this payload does not claim a full Unix tools
-installation.
+admission is enforced independently. The initial SSH-only payload exposed the
+firmware's sparse utilities. The Toybox addition supplies basic commands as
+described above; it remains a compact research environment, without a package
+manager or development toolchain.
+
+The expanded payload was built and installed as `2.14.0-local.8a2c08c9` on the
+research VM. The utility binary is approximately 405 KiB and links only
+libSystem. All 124 generated command links resolve. The checked-in
+`VPhoneGuestComponents/StudioDisplaySSH/Tests/UnixToolsSmoke.sh` passed through
+a real SSH session, covering file operations, filters, awk exit statuses and
+concurrent pipe lifetimes, gzip and compressed tar round trips, permissions,
+checksums, process inspection and sleep. An interactive SSH PTY also opened vi,
+saved a file and read it back correctly. Apple's native ps and df retained PATH
+precedence. The required patch model/catalogue and daemon suites pass again;
+the broad firmware run retains the same 131 absent-fixture failures and 68 skips.
+The research machine's original NAT configuration was retained and it was left
+stopped with this bundle and guest environment bound to it.

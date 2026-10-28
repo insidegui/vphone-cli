@@ -149,7 +149,7 @@ guest_compatibility_library="$(/usr/bin/xcrun swift-stdlib-tool --print \
 /bin/cp "$guest_products/tvsetupfocus/libvphonetvsetupfocus.dylib" "$guest/libvphonetvsetupfocus.dylib"
 /bin/cp "$guest_products/homepodsetup/vphone-homepod-setup" "$guest/vphone-homepod-setup"
 /bin/cp "$guest_products/homepodsetup/com.vphone.homepod-setup.plist" "$guest/com.vphone.homepod-setup.plist"
-for name in vphone-sshd vphone-ssh-keygen vphone-sh com.vphone.sshd.plist Dropbear-LICENSE Dash-COPYING; do
+for name in vphone-sshd vphone-ssh-keygen vphone-sh vphone-tools vphone-tools-applets.txt com.vphone.sshd.plist Dropbear-LICENSE Dash-COPYING Toybox-LICENSE; do
     /bin/cp "$guest_products/studiodisplayssh/$name" "$guest/$name"
 done
 /bin/cp "$guest_products/gpu/libAppleParavirtCompilerPluginIOGPUFamily.dylib" \
@@ -238,7 +238,7 @@ compatibility_library="$(/usr/bin/xcrun swift-stdlib-tool --print \
 /usr/bin/codesign --force --sign - --entitlements "$root/VPhoneDaemon/Configuration/VPhoneDaemon.entitlements" "$guest/vphoned-tvos"
 /usr/bin/codesign --force --sign - --entitlements "$root/VPhoneDaemon/Configuration/VPhoneDaemon.entitlements" "$guest/vphoned-darwinos"
 /usr/bin/codesign --force --sign - --entitlements "$root/VPhoneDaemon/Configuration/VPhoneDaemon.entitlements" "$guest/vphoned-watchos"
-for name in vphone-sshd vphone-ssh-keygen vphone-sh; do
+for name in vphone-sshd vphone-ssh-keygen vphone-sh vphone-tools; do
     /usr/bin/codesign --force --sign - --entitlements "$root/VPhoneGuestComponents/StudioDisplaySSH/StudioDisplaySSH.entitlements" "$guest/$name"
 done
 /usr/bin/codesign --force --sign - "$macos/vphone-escalator"

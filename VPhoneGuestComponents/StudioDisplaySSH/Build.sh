@@ -38,3 +38,4 @@ for binary in vphone-sshd vphone-ssh-keygen vphone-sh; do
     codesign --force --sign - --entitlements "$component/StudioDisplaySSH.entitlements" "$stage/$binary"
 done
 cp "$component/ThirdParty/Dropbear-LICENSE" "$component/ThirdParty/Dash-COPYING" "$stage/"
+zsh "$component/BuildTools.sh" "$work/toybox" "$stage"

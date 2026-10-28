@@ -88,7 +88,7 @@ public enum FirmwareGuestSystemPatchSet {
             VPhonePatchDeclaration(
                 identifier: studioDisplaySSH,
                 title: "Studio Display SSH access",
-                summary: "Installs Dropbear and a real POSIX shell for key-only root access over a localhost/VSOCK forward. Requires no guest UI or bootstrap. Turning this off removes the server, shell and launchd job; credentials remain private on Data for later reuse.",
+                summary: "Installs Dropbear, dash and basic Unix utilities for key-only root access over a localhost/VSOCK forward. Requires no guest UI or bootstrap. Turning this off removes the server, shell, utilities and launchd job; credentials remain private on Data for later reuse.",
                 target: .guestExecutable(path: "/usr/local/libexec/vphone-ssh/sshd"),
                 applicability: VPhonePatchApplicability(iOSBase: .release(major: 26, minor: 4)),
             ),

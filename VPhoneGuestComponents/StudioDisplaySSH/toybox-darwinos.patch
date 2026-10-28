@@ -1,0 +1,83 @@
+--- a/scripts/make.sh
++++ b/scripts/make.sh
+@@ -54,7 +54,7 @@
+ # and skip nonexistent libraries for it (probing in parallel).
+ LIBRARIES=$(
+   [ -z "$V" ] && X=/dev/null || X=/dev/stderr
+-  for i in util crypt m resolv selinux smack attr crypto z log iconv tls ssl
++  for i in
+   do
+     do_loudly ${CROSS_COMPILE}${CC} $CFLAGS $LDFLAGS -xc - -l$i >>$X 2>&1 \
+       -o /dev/null <<<"int main(int argc,char*argv[]){return 0;}" &&
+--- a/toys/pending/awk.c
++++ b/toys/pending/awk.c
+@@ -139,6 +139,7 @@
+     char eof;
+     int ro, lim, buflen;
+     char *buf;
++    pid_t child;
+   } *zfiles, *cfile, *zstdout;
+ )
+ 
+@@ -3054,7 +3055,11 @@
+     if ((!p->is_std_file) && (!fn || !strcmp(fn, p->fn))) {
+       xfree(p->buf);
+       xfree(p->fn);
+-      r = (p->fp) ? (p->file_or_pipe ? fclose : pclose)(p->fp) : -1;
++      r = p->fp ? fclose(p->fp) : -1;
++      if (p->child) {
++        int status = xwaitpid(p->child);
++        if (!r) r = status;
++      }
+       *pp = p->next;
+       xfree(p);
+       if (fn) return r;
+@@ -3078,9 +3083,20 @@
+       drop();
+       return p;   // open; return it
+     }
+-  FILE *fp = (file_or_pipe ? fopen : popen)(fn, mode);
++  int fd = -1;
++  pid_t child = 0;
++  FILE *fp;
++  if (file_or_pipe) fp = fopen(fn, mode);
++  else {
++    child = xpopen((char *[]){"/usr/local/libexec/vphone-ssh/sh", "-c", fn, 0}, &fd, *mode == 'r');
++    // Later pipe children must not retain this pipe and keep its peer alive.
++    fcntl(fd, F_SETFD, FD_CLOEXEC);
++    fp = fdopen(fd, mode);
++    if (!fp) { close(fd); xwaitpid(child); }
++  }
+   if (fp) {
+     struct zfile *p = new_file(fn, fp, *mode, file_or_pipe, 0);
++    p->child = child;
+     drop();
+     return p;
+   }
+@@ -4294,13 +4310,7 @@
+         nargs = *ip++;
+         fflush(stdout);
+         fflush(stderr);
+-        r = system(to_str(STKP)->vst->str);
+-#ifdef WEXITSTATUS
+-        // WEXITSTATUS is in sys/wait.h, but I'm not including that.
+-        // It seems to also be in stdlib.h in gcc and musl-gcc.
+-        // No idea how portable this is!
+-        if (WIFEXITED(r)) r = WEXITSTATUS(r);
+-#endif
++        r = xrun((char *[]){"/usr/local/libexec/vphone-ssh/sh", "-c", to_str(STKP)->vst->str, 0});
+         drop();
+         push_int_val(r);
+         break;
+--- a/lib/portability.c
++++ b/lib/portability.c
+@@ -599,7 +599,8 @@
+ #include <sys/disk.h>
+ int get_block_device_size(int fd, unsigned long long* size)
+ {
+-  unsigned long block_size, block_count;
++  uint32_t block_size;
++  uint64_t block_count;
+ 
+   if (!ioctl(fd, DKIOCGETBLOCKSIZE, &block_size) &&
+       !ioctl(fd, DKIOCGETBLOCKCOUNT, &block_count)) {

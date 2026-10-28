@@ -2946,10 +2946,25 @@ struct VPhoneCustomFirmwareInstaller {
                 try system.replaceFile("\(folder)/\(destination)", fromFileAt: VPhoneGuestBinaries.resolve(source),
                                        mode: 0o755, owner: Self.guestOwner)
             }
+            let commands = try String(contentsOf: VPhoneGuestBinaries.resolve("vphone-tools-applets.txt"), encoding: .utf8)
+                .split(whereSeparator: \.isWhitespace).map(String.init)
+            guard !commands.isEmpty, commands.allSatisfy({ name in
+                name != "." && name != ".." && name != "toybox" && !name.contains("/") && !name.contains("\0")
+            }) else { throw ValidationError("Invalid Studio Display utilities manifest") }
+            let tools = "\(folder)/bin"
+            // This directory belongs entirely to this payload. Rebuild its
+            // links on update so applets removed from the config disappear too.
+            try system.removeItem(tools)
+            _ = try system.directory(tools, create: true, mode: 0o755)
+            try system.replaceFile("\(tools)/toybox", fromFileAt: VPhoneGuestBinaries.resolve("vphone-tools"),
+                                   mode: 0o755, owner: Self.guestOwner)
+            for command in commands {
+                try system.createSymlink(target: "toybox", at: "\(tools)/\(command)")
+            }
             let daemon = resources.guestResources.appendingPathComponent("\(name).plist")
             try system.replaceFile(plist, fromFileAt: daemon, mode: 0o644, owner: Self.guestOwner)
             try CustomFirmwareDaemons.injectDaemon(into: staged, name: name, from: daemon)
-            print("  [+] darwinOS key-only SSH server and POSIX shell installed")
+            print("  [+] darwinOS key-only SSH server, POSIX shell and \(commands.count) Unix utilities installed")
         } else {
             try CustomFirmwareDaemons.removeDaemon(named: name, from: staged)
             try system.removeItem(plist)

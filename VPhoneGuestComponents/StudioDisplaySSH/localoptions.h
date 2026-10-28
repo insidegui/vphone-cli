@@ -17,5 +17,5 @@
 #define DROPBEAR_DSS 0
 #define DROPBEAR_ED25519 1
 #define DO_MOTD 0
-#define DEFAULT_PATH "/usr/local/libexec/vphone-ssh:/usr/bin:/bin:/usr/sbin:/sbin"
+#define DEFAULT_PATH "/usr/local/libexec/vphone-ssh:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/libexec/vphone-ssh/bin"
 #define DEFAULT_ROOT_PATH DEFAULT_PATH

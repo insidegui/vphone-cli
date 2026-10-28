@@ -35,3 +35,22 @@ The native bridge resolves libSystem's fork at runtime because the application
 SDK disallows naming it directly. It is built into each executable, not injected
 into system processes. No system shell, account file or Apple display path is
 replaced.
+
+## Toybox 0.8.15
+
+- Upstream: https://landley.net/toybox/downloads/toybox-0.8.15.tar.gz
+- Original SHA-256: `44e2bab43dfe2c171743297631ce558c6d9ed38b87a66fd751cef617574b375e`
+- Repacked SHA-256: `52940ae848426a57e43a883405a8a0ccae74c8b2db2bec36c54954575582b681`
+- The checked-in archive omits Python and GitHub metadata. No upstream test
+  interpreter is invoked. License: Toybox-LICENSE (0BSD).
+- `../toybox_miniconfig` selects the Darwin-portable file/text/process utilities,
+  plus awk, tr and vi. Setuid support, optional external crypto/zlib libraries
+  and recursive in-process command dispatch are disabled. Apple tools keep
+  precedence in PATH.
+- `../BuildTools.sh` builds upstream's host prerequisite tool using Xcode, then
+  cross-compiles the guest binary. Only `sys/disk.h` is borrowed from the selected
+  macOS SDK; the remaining headers and the sole library (libSystem) are iPhoneOS.
+- `../toybox-darwinos.patch` disables optional library discovery, corrects the
+  block-size ioctl buffer types to the Darwin ABI, and routes awk's system/pipe
+  execution through upstream's fork/exec/wait helpers using our installed dash.
+  It does not add a shell interpreter or replace Apple binaries.

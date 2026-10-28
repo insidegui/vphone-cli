@@ -1,5 +1,13 @@
 # Patch Comparison: Regular / Development / Jailbreak / Experimental
 
+> **Studio Display Unix utilities (2026-10-28).** The existing reversible
+> `system-ssh-exp-studio_display` payload now includes a native Toybox 0.8.15
+> Darwin subset for basic file, text and process commands. Its private command
+> directory follows Apple's system directories in the SSH PATH. The same
+> environment update installs/removes the utilities with the SSH payload.
+> No new instruction patch, system-tool replacement or bootstrap is involved.
+> See [SSH environment](Firmware/studio_display_xdr_ssh.md).
+
 > **Studio Display SSH access (2026-10-28).** New reversible guest declaration
 > `system-ssh-exp-studio_display`, enabled by `darwinos` on 26.4 and blocked in
 > other full-system presets. Installs native Dropbear, dash and key generation,
