@@ -42,6 +42,11 @@ boot chain, kernel, SEP and virtual hardware. The display identity persists as
 `AppleDisplay18,1`. The 1280×720 virtual framebuffer is a diagnostic canvas,
 not an emulation of the physical XDR panel's timing or pixels.
 
+The native AppleTCONControl animation driver is absent from the PCC kernel.
+The [native boot-animation investigation](studio_display_xdr_native_boot_animation.md)
+records its kernel/provider requirements and the different boot-console and
+paravirtual display geometries. No replacement renderer is installed.
+
 The `darwinos` preset selects existing PCC boot/kernel patches, the donor's
 board presentation, seputil/Gigalocker repair, the launchd cache-loader gate
 and the dedicated `vphoned-darwinos` research agent. It leaves iOS UI,
@@ -76,13 +81,12 @@ the supplied AEA can be passed as `--iphone-source`; this existing argument
 names the userland source for every guest family. `--ota-source` remains the
 separate SoftwareUpdate payload mechanism and is not used here.
 
-The guest agent and forwarded IP ports provide a research path to services
-that can operate on virtual network interfaces. The VM does not emulate the
-display's physical USB gadget, NCM attachment, Thunderbolt/DisplayPort links,
-DCP, camera or downstream controllers. Retaining a native launchd job does
-not establish that its hardware-dependent transport is functional. Native
-host communication over those controllers requires additional device models
-or a separately verified transport adapter. See
+Native `remotectl` discovers the guest and its services through its existing
+NCM and virtual-machine transports; no special communication emulation is
+needed. The guest agent and forwarded IP ports provide additional inspection
+paths. Physical Thunderbolt/DisplayPort links, DCP, camera and downstream
+controllers are outside this profile. Discovery alone does not validate every
+hardware-conditioned service. See
 [service evidence](studio_display_xdr_services.md).
 
 ## Validation
@@ -112,8 +116,10 @@ Validated on 2026-10-27 with four CPUs, 4 GiB memory and a 32 GB virtual disk:
   long-duration stability validation.
 - Native `remoted`, ConfigureUSB, corespeechd_darwin, darwinaudiod,
   darwincameracaptured, uarpd and uarpassetmanagerd were observed running.
-  Hardware-conditioned display/controller services remain idle. This does
-  not establish functional USB/NCM attachment or physical device protocols.
+  Native `remotectl` subsequently showed connected NCM and virtual-machine
+  entries with the display identity and shipped RemoteServices. No special
+  communication emulation is needed. Hardware-conditioned display/controller
+  services remain idle; individual physical device protocols are not all tested.
 - A signed scratch echo program was uploaded, downloaded byte-identically,
   and launched with `proc.run`. A host WebSocket connected through
   `/v1/ports/39079` and received the exact guest TCP echo. `/v1/shell` opened

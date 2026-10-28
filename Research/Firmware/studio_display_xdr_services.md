@@ -50,8 +50,7 @@ location or package bootstrap API.
 
 ## Native host communication
 
-These are observations of Apple's shipped launchd records, not successful
-runtime communication tests:
+The shipped launchd records describe these native services:
 
 - `com.apple.darwin.ConfigureUSB` runs `/usr/libexec/ConfigureUSB` once at boot.
   REA analysis of that executable observes IOUSBDeviceController imports,
@@ -77,13 +76,15 @@ runtime communication tests:
 - UARP's `com.apple.uarpd` exposes asset-personalization and endpoint
   control/transport Mach services. These jobs remain part of Apple's system.
 
-The native USB/NCM path requires controller objects and IOKit topology which
-Virtualization.framework's virtio network device does not reproduce. A guest TCP
-service can be reached through the daemon's loopback port forward, and the
-process/service/file APIs permit inspection from the host. This does not by
-itself reproduce physical Thunderbolt/USB attachment, RemoteXPC discovery or
-hardware display control. Those paths require further runtime investigation;
-no bridge, hardware emulator or entitlement bypass is implied by this profile.
+Runtime inspection with `remotectl` reports the booted guest on both NCM and
+virtual-machine transports, connected and connectable, with its native
+RemoteServices, `AppleDisplay18,1` / `J427AP` identity and `IsUIBuild=false`.
+The virtual-machine transport works without a special host communication
+emulator. These observations establish discovery and service publication;
+they do not establish the behavior of every individual service or reproduce
+physical Thunderbolt/DisplayPort timing and downstream hardware. The existing
+guest TCP forwarding and process/service/file APIs provide additional inspection
+tools. No entitlement bypass is added to the native RemoteXPC services.
 
 REA ConfigureUSB evidence:
 `ev_3b88e25c1537b73a09ef3289d7648dbeb645c3aeb1162700c6376b4451848a63`
@@ -127,6 +128,14 @@ existing dynamic string/control-flow anchors and contains no new fixed offsets.
 Xcode MCP successfully builds the dedicated iPhoneOS target. The native PTY and
 proxy tests are shared with the existing daemon. The darwinOS file metadata
 harness exercises actual temporary files, directories, directory symlinks and
-dangling symlinks against the host files panel's wire contract. Integrated boot,
-VM service availability, native USB/NCM and RemoteXPC behavior are separate
-runtime checks; source compilation and static inspection do not establish them.
+dangling symlinks against the host files panel's wire contract. Integrated boot
+and guest research transport were subsequently verified in the linked runtime
+validation. Native `remotectl` also reports connected NCM and virtual-machine
+entries for AppleDisplay18,1, with the shipped RemoteServices and
+`IsUIBuild=false`; that observation is retained in
+`.build/studio-display-research/native-remotectl-show.txt`. No additional host
+communication emulator is needed for that working route. Physical display
+controller behavior remains outside those checks. The VM does not currently
+execute the native AppleTCONControl boot-animation path. Its prerequisites,
+native completion signal and live boot-console mismatch are documented in
+[native boot-animation investigation](studio_display_xdr_native_boot_animation.md).

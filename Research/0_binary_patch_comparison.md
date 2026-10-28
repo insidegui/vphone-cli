@@ -1,5 +1,18 @@
 # Patch Comparison: Regular / Development / Jailbreak / Experimental
 
+> **Studio Display substitute boot renderer removed (2026-10-27).** The
+> experimental `system-studio_display-exp-boot_animation` implementation was a
+> replacement userspace renderer using extracted frames, not the original
+> AppleTCONControl code executing on virtual hardware. It did not implement
+> native boot-completion signaling. The helper, resource extractor, patch
+> declaration, preset changes and installer integration have been removed at
+> the user's request. Native boot-animation virtualization remains unsupported.
+> Follow-up [native-code investigation](Firmware/studio_display_xdr_native_boot_animation.md)
+> identifies the driver/GPIO loading requirements, original console-memory path
+> and prodisplayd selector-5 completion dependencies. Read-only inspection finds
+> a 640×1136 kernel boot console alongside the 1280×720 paravirtual display;
+> continuing scanout and a compatible native driver transplant remain unproven.
+
 > **Studio Display XDR darwinOS bring-up (2026-10-27).** The `darwinos`
 > preset selects the existing PCC boot/kernel patches, donor board identity,
 > launchd cache-loader gate, seputil/Gigalocker repair and a dedicated
