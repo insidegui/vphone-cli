@@ -164,6 +164,15 @@ for name in vphoned vphoned-tvos vphoned-watchos vphoned-darwinos libvphonetvset
     libprefsfix.dylib libsigninfix.dylib libvphonegyro.dylib libvphoneaccelerometer.dylib libvphoneattitude.dylib libvphonehomepoddisplay.dylib libvphonecryptexstaging.dylib libvphoneinstallpersona.dylib libvphonehomepodmisfix.dylib vphone-homepod-setup libAppleParavirtCompilerPluginIOGPUFamily.dylib; do
     require_signed_macho "$guest/$name"
 done
+for name in vphone-sshd vphone-ssh-keygen vphone-sh; do
+    require_signed_macho "$guest/$name"
+    /usr/bin/otool -L "$guest/$name" | /usr/bin/awk 'NR > 1 {print $1}' |
+    while IFS= read -r dependency; do
+        [[ "$dependency" == /usr/lib/libSystem.B.dylib ]] || {
+            print -u2 "Unexpected darwinOS SSH dependency in $name: $dependency"; exit 1
+        }
+    done
+done
 # iOS 18 must be able to resolve the compatibility library without Xcode.
 # /usr/lib/swift remains first for guests whose standard library has Span.
 daemon_rpaths="$(/usr/bin/otool -l "$guest/vphoned" | /usr/bin/awk '

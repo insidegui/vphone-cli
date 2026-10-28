@@ -68,6 +68,7 @@ final class VPhoneGuestControl {
     @ObservationIgnored private var guestBinaryDigest = VPhoneFileDigestCache()
     @ObservationIgnored var onConnect: (([String]) -> Void)?
     @ObservationIgnored var onDisconnect: (() -> Void)?
+    @ObservationIgnored var sshService: VPhoneGuestSSHService?
     /// What en0 should be configured as, from the manifest. Applied on every
     /// connect, so a guest that was changed while the host was away is put back.
     @ObservationIgnored var guestIPv4Setting: VPhoneGuestIPv4Setting?
@@ -186,6 +187,7 @@ final class VPhoneGuestControl {
     }
 
     func stop() {
+        sshService?.stop()
         monitor?.cancel()
         monitor = nil
         orderedInput?.cancel()
@@ -270,6 +272,7 @@ final class VPhoneGuestControl {
                     Task { await applyGuestStaticNames(entries) }
                 }
             }
+            if capabilities.contains("ssh") { sshService?.connect(control: self) }
         } catch {
             if !isConnected {
                 print("[control] probe failed: \(error)")
@@ -279,6 +282,7 @@ final class VPhoneGuestControl {
     }
 
     private func setDisconnected() {
+        sshService?.stop()
         guard isConnected || !guestCapabilities.isEmpty || guestIPAddress != nil || guestIOSVersion != nil
         else { return }
         let wasConnected = isConnected

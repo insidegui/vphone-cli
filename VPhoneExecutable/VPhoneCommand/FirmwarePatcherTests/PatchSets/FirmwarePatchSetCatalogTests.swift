@@ -178,6 +178,7 @@ struct FirmwarePatchSetCatalogTests {
         )
         let enabled = Set(plan.enabled)
         let allowedGuest: Set<String> = [
+            FirmwareGuestSystemPatchSet.studioDisplaySSH,
             "system-vphoned-boot-install",
             "system-launchd_cache_loader-boot-unsecure_cache_gate",
             "system-seputil-boot-gigalocker_uuid",
@@ -274,6 +275,7 @@ struct FirmwarePatchSetCatalogTests {
             )
             let applicableManual = Set(FirmwarePatchSetCatalog.allDeclarations.filter {
                 FirmwarePatchSetCatalog.manualOnlyPatches.contains($0.identifier)
+                    && $0.identifier != FirmwareGuestSystemPatchSet.studioDisplaySSH
                     && $0.identifier != FirmwareGuestSystemPatchSet.homePodTopCap
                     && $0.identifier != FirmwareGuestSystemPatchSet.homePodSetupBypass
                     && $0.identifier != FirmwareGuestSystemPatchSet.homePodWelcome

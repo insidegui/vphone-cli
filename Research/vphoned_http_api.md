@@ -309,6 +309,15 @@ It provides no scripting engine, app/input/display APIs or physical
 USB/Thunderbolt emulation. See
 [Studio Display XDR](Firmware/studio_display_xdr_support.md).
 
+When the darwinOS preset's SSH payload is installed, this agent additionally
+advertises `ssh`. `ssh.configure {public_key}` accepts one Ed25519 public key,
+prepares root-only credentials and starts the loopback SSH job; its result
+contains `host_key`, `port` (2222) and `user` (`root`). The VM process invokes
+this over VSOCK and provides the localhost TCP bridge automatically.
+`vphone-cli vm ssh <name> [command...]` uses the pinned host key and its private
+client key. The separate Dropbear/dash payload provides an actual POSIX shell;
+the default JSON console stays available. See [Studio Display SSH](Firmware/studio_display_xdr_ssh.md).
+
 A guest has no shell, and the `tvos` preset has neither debugserver nor any
 Frida patch, so a script run with vphoned's own identity is the only way to
 reach what the guest keeps to itself. The engine is IcliKit's probe (icli

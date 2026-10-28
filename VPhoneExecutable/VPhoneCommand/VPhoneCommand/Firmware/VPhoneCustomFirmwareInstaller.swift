@@ -211,6 +211,9 @@ struct VPhoneCustomFirmwareInstaller {
             ? try restoreTree(in: bundleDirectory, path: bundlePath, owner: callerUID)
             : nil
         let device = configuredGuestDevice(in: bundleDirectory) ?? guestDevice(of: restore)
+        if effectiveEnabled.contains(FirmwareGuestSystemPatchSet.studioDisplaySSH), device.family != .studioDisplay {
+            throw ValidationError("Studio Display SSH requires a darwinOS guest")
+        }
         if effectiveEnabled.contains(FirmwareGuestSystemPatchSet.tvLegacySetup), device.family != .appleTV {
             throw ValidationError("The TV setup compatibility patch is supported only for an Apple TV guest.")
         }
@@ -1499,6 +1502,16 @@ struct VPhoneCustomFirmwareInstaller {
                 // Optional on TV, unlike on iOS: take it out again.
                 try removeTVEnvironment(system: system)
             }
+        }
+        let ssh = FirmwareGuestSystemPatchSet.studioDisplaySSH
+        if on(ssh) {
+            guard guestDevice.family == .studioDisplay else {
+                throw ValidationError("Studio Display SSH requires a darwinOS guest")
+            }
+            try updateStudioDisplaySSH(system: system, work: work, enabled: true)
+            live.insert(ssh)
+        } else if guestDevice.family == .studioDisplay || priorGuest.contains(ssh) {
+            try updateStudioDisplaySSH(system: system, work: work, enabled: false)
         }
         // HomePod deliberately excludes the iPhone environment. Inject only the
         // cryptex staging compatibility, directly into its platform executable.
@@ -2917,6 +2930,33 @@ struct VPhoneCustomFirmwareInstaller {
         try system.copyFile(from: backup, to: "launchd.plist", in: work.directory)
         try CustomFirmwareDaemons.injectDaemon(into: temp, name: "vphoned", from: daemon)
         try system.replaceFile(launchd, fromFileAt: temp, mode: 0o644, owner: Self.guestOwner)
+    }
+
+    private func updateStudioDisplaySSH(system: VPhoneConfinedDirectory, work: WorkDirectory, enabled: Bool) throws {
+        let folder = "usr/local/libexec/vphone-ssh"
+        let name = "com.vphone.sshd"
+        let plist = "System/Library/LaunchDaemons/\(name).plist"
+        if !enabled, !(try system.exists(folder)), !(try system.exists(plist)) { return }
+        let cache = "System/Library/xpc/launchd.plist"
+        let staged = work.file("ssh-launchd.plist")
+        try system.copyFile(from: cache, to: "ssh-launchd.plist", in: work.directory)
+        if enabled {
+            _ = try system.directory(folder, create: true, mode: 0o755)
+            for (source, destination) in [("vphone-sshd", "sshd"), ("vphone-sh", "sh"), ("vphone-ssh-keygen", "keygen")] {
+                try system.replaceFile("\(folder)/\(destination)", fromFileAt: VPhoneGuestBinaries.resolve(source),
+                                       mode: 0o755, owner: Self.guestOwner)
+            }
+            let daemon = resources.guestResources.appendingPathComponent("\(name).plist")
+            try system.replaceFile(plist, fromFileAt: daemon, mode: 0o644, owner: Self.guestOwner)
+            try CustomFirmwareDaemons.injectDaemon(into: staged, name: name, from: daemon)
+            print("  [+] darwinOS key-only SSH server and POSIX shell installed")
+        } else {
+            try CustomFirmwareDaemons.removeDaemon(named: name, from: staged)
+            try system.removeItem(plist)
+            try system.removeItem(folder)
+            print("  [+] darwinOS SSH server, shell and launchd job removed")
+        }
+        try system.replaceFile(cache, fromFileAt: staged, mode: 0o644, owner: Self.guestOwner)
     }
 
     /// Keep rollback available even when the owner also deselects vphoned.

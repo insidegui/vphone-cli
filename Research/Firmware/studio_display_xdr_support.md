@@ -89,6 +89,10 @@ controllers are outside this profile. Discovery alone does not validate every
 hardware-conditioned service. See
 [service evidence](studio_display_xdr_services.md).
 
+The darwinOS preset also supplies [native SSH access](studio_display_xdr_ssh.md):
+`vphone-cli vm ssh <name>` opens a real POSIX shell through a key-authenticated
+localhost/VSOCK forward, including on headless guests with no NIC.
+
 ## Validation
 
 The actual AEA was downloaded, decrypted, inspected and extracted with the

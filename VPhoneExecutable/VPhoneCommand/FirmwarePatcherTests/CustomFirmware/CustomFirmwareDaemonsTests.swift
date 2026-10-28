@@ -422,6 +422,24 @@ struct CustomFirmwareDaemonsTests {
     // MARK: - launchd.plist injection
 
     @Test
+    func `removing SSH retains native jobs and is idempotent`() throws {
+        let directory = try CustomFirmwareDaemonsFixtures.temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let plist = directory.appending(path: "launchd.plist")
+        try CustomFirmwareDaemons.savePlist(["VersionNumber": 7, "LaunchDaemons": [
+            "/System/Library/LaunchDaemons/com.vphone.sshd.plist": ["Label": "com.vphone.sshd"],
+            "/System/Library/LaunchDaemons/com.apple.remoted.plist": ["Label": "com.apple.remoted"],
+        ]], to: plist)
+        try CustomFirmwareDaemons.removeDaemon(named: "com.vphone.sshd", from: plist)
+        try CustomFirmwareDaemons.removeDaemon(named: "com.vphone.sshd", from: plist)
+        let result = try CustomFirmwareDaemons.loadPlist(plist)
+        let jobs = try #require(result["LaunchDaemons"] as? [String: Any])
+        #expect(jobs.count == 1)
+        #expect(jobs["/System/Library/LaunchDaemons/com.apple.remoted.plist"] != nil)
+        #expect(result["VersionNumber"] as? Int == 7)
+    }
+
+    @Test
     func `injection creates LaunchDaemons when the target has none`() throws {
         let directory = try CustomFirmwareDaemonsFixtures.temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

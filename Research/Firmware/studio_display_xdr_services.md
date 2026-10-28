@@ -48,6 +48,12 @@ An uploaded, appropriately signed research tool can also be executed directly.
 The daemon offers no UI, application installation, touch, clipboard, camera,
 location or package bootstrap API.
 
+The darwinOS preset now also installs an independent native Dropbear/dash
+payload. With it present, the agent advertises `ssh` and provisions key-based
+access over VSOCK; `vm ssh` opens its POSIX shell without Irisin or a guest UI.
+See [SSH implementation](studio_display_xdr_ssh.md). The JSON RPC console above
+remains the default `/v1/shell` session.
+
 ## Native host communication
 
 The shipped launchd records describe these native services:

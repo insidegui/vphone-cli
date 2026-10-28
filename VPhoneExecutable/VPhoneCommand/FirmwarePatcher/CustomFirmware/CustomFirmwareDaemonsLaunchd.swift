@@ -83,6 +83,15 @@ public extension CustomFirmwareDaemons {
 
     // MARK: - Injection
 
+    /// Remove only the named job, retaining unrelated cached native jobs.
+    static func removeDaemon(named name: String, from launchdPlist: URL) throws {
+        var target = try loadPlist(launchdPlist)
+        var jobs = target["LaunchDaemons"] as? PlistDict ?? [:]
+        guard jobs.removeValue(forKey: "/System/Library/LaunchDaemons/\(name).plist") != nil else { return }
+        target["LaunchDaemons"] = jobs
+        try savePlist(target, to: launchdPlist)
+    }
+
     /// Merge daemons into a `launchd.plist`'s `LaunchDaemons` dictionary, in place.
     ///
     /// This is the single merge behind `cfw inject-daemons`, the jb-setup

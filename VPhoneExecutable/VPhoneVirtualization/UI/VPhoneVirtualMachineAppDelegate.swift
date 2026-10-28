@@ -116,6 +116,9 @@ class VPhoneVirtualMachineAppDelegate: NSObject, NSApplicationDelegate {
         control.isHomePodGuest = options.isHomePodGuest
         self.control = control
         if !command.dfu {
+            if (try? VPhoneVirtualMachineManifest.load(from: options.configURL).guestDevice.family) == .studioDisplay {
+                control.sshService = VPhoneGuestSSHService(configURL: options.configURL)
+            }
             control.unlocksAtStartup = vm.unlocksAtStartup
             control.syncsGuestEnvironment = !options.isTVGuest && !options.isHomePodGuest
             control.syncsHostLocation = vm.syncsHostLocation

@@ -1,5 +1,13 @@
 # Patch Comparison: Regular / Development / Jailbreak / Experimental
 
+> **Studio Display SSH access (2026-10-28).** New reversible guest declaration
+> `system-ssh-exp-studio_display`, enabled by `darwinos` on 26.4 and blocked in
+> other full-system presets. Installs native Dropbear, dash and key generation,
+> using public-key-only root authentication and a localhost/VSOCK host forward.
+> No system accounts, UI, kernel instructions or accessory services are changed.
+> `cfw update-environment` installs/removes the payload on existing machines.
+> See [SSH implementation](Firmware/studio_display_xdr_ssh.md).
+
 > **Studio Display substitute boot renderer removed (2026-10-27).** The
 > experimental `system-studio_display-exp-boot_animation` implementation was a
 > replacement userspace renderer using extracted frames, not the original

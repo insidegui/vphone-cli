@@ -197,6 +197,12 @@ class VPhoneHostAutomationServer {
                 try await connectedControl().sendPing()
                 return Self.reply(ok: true)
 
+            case "ssh":
+                guard let port = try connectedControl().sshService?.port else {
+                    return Self.reply(ok: false, error: "SSH is not ready. Wait for boot, or run cfw update-environment with a bundle providing Studio Display SSH.")
+                }
+                return Self.reply(ok: true, result: ["port": port])
+
             case "screenshot":
                 let image = try await connectedControl().screenshotJPEG()
                 let url = if let outputPath = json["path"] as? String {

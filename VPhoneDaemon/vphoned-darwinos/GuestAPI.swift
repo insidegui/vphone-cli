@@ -38,11 +38,12 @@ enum GuestAPI {
         ["name": "vphoned", "api_version": 1, "status": "ok", "binary_hash": binaryHash,
          "instance": instance, "ios": version()["ProductVersion"] ?? "", "os": "darwinOS",
          "ip": networkAddresses().first { !$0.hasPrefix("127.") && !$0.contains(":") } ?? "",
-         "setup_pending": false, "capabilities": ["files", "port_forward", "device_info", "processes", "services", "shell"]]
+         "setup_pending": false, "capabilities": ["files", "port_forward", "device_info", "processes", "services", "shell"] + (GuestSSH.available ? ["ssh"] : [])]
     }
 
     static func execute(method: String, params: [String: Any]) throws -> [String: Any] {
         switch method {
+        case "ssh.configure": return try GuestSSH.configure(params)
         case "device.info", "device.snapshot": return try deviceInfo()
         case "device.network": return ["addresses": networkAddresses()]
         case "processes.list": return try listProcesses(filter: params["filter"] as? String)

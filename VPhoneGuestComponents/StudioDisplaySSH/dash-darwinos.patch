@@ -1,0 +1,10 @@
+--- a/src/jobs.c
++++ b/src/jobs.c
+@@ -35,6 +35,7 @@
+ #include <fcntl.h>
+ #include <signal.h>
++#include "vphone-platform.h"
+ #include <unistd.h>
+ #include <stdlib.h>
+ #ifdef HAVE_PATHS_H
+ #include <paths.h>

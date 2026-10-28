@@ -1,0 +1,38 @@
+--- a/src/common-session.c
++++ b/src/common-session.c
+@@ -672,7 +672,11 @@
+ 	ses.authstate.pw_gid = pw->pw_gid;
+ 	ses.authstate.pw_name = m_strdup(pw->pw_name);
+ 	ses.authstate.pw_dir = m_strdup(pw->pw_dir);
++	#ifdef VPHONE_DARWINOS
++	ses.authstate.pw_shell = m_strdup("/usr/local/libexec/vphone-ssh/sh");
++#else
+ 	ses.authstate.pw_shell = m_strdup(pw->pw_shell);
++#endif
+ 	{
+ 		char *passwd_crypt = pw->pw_passwd;
+ #ifdef HAVE_SHADOW_H
+--- a/src/svr-auth.c
++++ b/src/svr-auth.c
+@@ -312,6 +312,13 @@
+ 		usershell = "/bin/sh";
+ 	}
+ 
++#ifdef VPHONE_DARWINOS
++	/* The dedicated server admits only root and its installed real shell.
++	 * Do not rewrite darwinOS account files or its system shell policy. */
++	if (strcmp(username, "root") != 0 ||
++		strcmp(usershell, "/usr/local/libexec/vphone-ssh/sh") != 0 ||
++		access(usershell, X_OK) != 0) return DROPBEAR_FAILURE;
++#else
+ 	/* check the shell is valid. If /etc/shells doesn't exist, getusershell()
+ 	 * should return some standard shells like "/bin/sh" and "/bin/csh" (this
+ 	 * is platform-specific) */
+@@ -333,6 +340,7 @@
+ 	
+ goodshell:
+ 	endusershell();
++#endif
+ 	TRACE(("matching shell"))
+ 
+ 	TRACE(("uid = %d", ses.authstate.pw_uid))

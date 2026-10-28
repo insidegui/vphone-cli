@@ -3,7 +3,7 @@
 
 [Documentation](../README.md) · [Host setup](host-setup.md) · [Compatibility](compatibility.md)
 
-The public firmware workflow applies one complete patch set, including the former EXP changes; patch variants cannot be selected. It patches the boot chain and guest system, installs vphoned, and leaves the user's environment empty. It does not install Sileo, apt, TrollStore, an SSH server or VNC server.
+The public firmware workflow applies one complete patch set, including the former EXP changes; patch variants cannot be selected. It patches the boot chain and guest system, installs vphoned, and leaves the user's environment empty. It does not install Sileo, apt, TrollStore or VNC. Studio Display's `darwinos` preset also installs a native SSH server and POSIX shell; other guests do not receive an SSH server.
 
 ## One-command flow
 
@@ -39,7 +39,9 @@ vphone-cli vm stop myphone    # run from another terminal to stop it
 
 Closing the VM window, ⌘Q, `vm stop` and Control-C in the `vm launch` terminal all shut the guest down first (vphoned `system.shutdown`) and end the virtual machine once the guest has stopped, or after 15 seconds if it has not. A guest vphoned cannot answer for, such as one in DFU or still starting up, is turned off at once, as pulling the power would. A second Control-C turns it off without waiting. `vm stop` only ever signals the machine's own processes, `vphone-vm` and Virtualization's VM service; another program that has the disk open, such as Launchpad measuring its size, Spotlight or a backup tool, is named and left running.
 
-`vm launch` starts the guest without waiting for vphoned; the daemon connects during boot. The VM window and menu provide Home/power keys, app installation and file browsing. The host control socket is `<VM bundle>/vphone.sock`: one JSON line in, one out. Connections are served concurrently, and the socket also exists with `--no-graphics`, where `tap` and `swipe` go through vphoned's touch injection and screen images come from the guest. Besides `tap`, `swipe`, `key` and `screenshot`, `{"t":"rpc","method":"<vphoned method>","params":{…}}` calls any method in `Research/vphoned_http_api.md`. For example, `input.key` with `{"name":"cmd+v"}` pastes and `input.type` types text. No SSH or VNC endpoint is installed by this workflow.
+`vm launch` starts the guest without waiting for vphoned; the daemon connects during boot. The VM window and menu provide Home/power keys, app installation and file browsing. The host control socket is `<VM bundle>/vphone.sock`: one JSON line in, one out. Connections are served concurrently, and the socket also exists with `--no-graphics`, where `tap` and `swipe` go through vphoned's touch injection and screen images come from the guest. Besides `tap`, `swipe`, `key` and `screenshot`, `{"t":"rpc","method":"<vphoned method>","params":{…}}` calls any method in `Research/vphoned_http_api.md`. For example, `input.key` with `{"name":"cmd+v"}` pastes and `input.type` types text.
+
+For Studio Display guests, `vphone-cli vm ssh <name>` opens a root shell with an automatically generated key and pinned host key. It works with `vm launch <name> --headless` and with networking disabled. An existing VM needs `cfw update-environment <name>` with the new bundle before its next boot. [Studio Display SSH](../../Research/Firmware/studio_display_xdr_ssh.md) describes credentials, localhost forwarding and disabling the payload.
 
 ## Device name
 

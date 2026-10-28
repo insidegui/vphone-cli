@@ -33,6 +33,7 @@ final class VPhoneGuestShellChannel: @unchecked Sendable {
         var program: String?
         var columns: Int
         var rows: Int
+        var port: Int?
 
         init(program: String? = nil, columns: Int = 80, rows: Int = 24) {
             self.program = program
@@ -142,8 +143,9 @@ final class VPhoneGuestShellChannel: @unchecked Sendable {
         // `Host` has to be a name vphoned reads as local, and no `Origin`:
         // together they are what tells it this is not a web page. Over VSOCK
         // there is no token, which is the host proxy's concern alone.
+        let route = options.port.map { "/v1/ports/\($0)" } ?? "/v1/shell?\(query.joined(separator: "&"))"
         let request = """
-        GET /v1/shell?\(query.joined(separator: "&")) HTTP/1.1\r
+        GET \(route) HTTP/1.1\r
         Host: vphoned\r
         Upgrade: websocket\r
         Connection: Upgrade\r

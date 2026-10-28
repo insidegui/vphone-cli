@@ -108,6 +108,8 @@ HOMEPODMISFIX_INPUTS := $(HOMEPODMISFIX_SOURCES) MISFix/MISFixDetour.h MISFix/MI
 HOMEPODSETUP := $(STAGE)/homepodsetup/vphone-homepod-setup
 HOMEPODSETUP_SOURCES := $(call find_sources,HomePodSetup)
 HOMEPODSETUP_INPUTS := $(call find_headers,HomePodSetup) HomePodSetup/com.vphone.homepod-setup.plist
+STUDIODISPLAYSSH := $(STAGE)/studiodisplayssh/.built
+STUDIODISPLAYSSH_INPUTS := $(wildcard StudioDisplaySSH/* StudioDisplaySSH/ThirdParty/*)
 TVSETUPFOCUS := $(STAGE)/tvsetupfocus/libvphonetvsetupfocus.dylib
 TVSETUPFOCUS_SOURCES := $(call find_sources,TVSetupFocus)
 TVSETUPFOCUS_INPUTS := $(call find_headers,TVSetupFocus) $(call find_folders,TVSetupFocus)
@@ -153,7 +155,7 @@ GPU_PROVENANCE := $(STAGE)/gpu/README.md
 
 .PHONY: all gpu package test-loader-links test-injection-environment test-devicename test-vcam-dataplane test-virtiosound test-x1-lowering clean
 
-all: $(ARTIFACTS) $(PLISTS) $(GPU_PROVENANCE)
+all: $(ARTIFACTS) $(PLISTS) $(GPU_PROVENANCE) $(STUDIODISPLAYSSH)
 
 .PHONY: test-homepod-display
 test-homepod-display:
@@ -190,7 +192,7 @@ gpu: $(GPU_PLUGIN)
 
 package: all
 	@rm -f $(ARCHIVE)
-	@/usr/bin/tar -cf $(ARCHIVE) -C $(STAGE) camfix vcamcaptured launchhook systemhook misfix hapticsfix batteryhealthfix devicehubfix devicename prefsfix signinfix gyroscope accelerometer attitude homepoddisplay cryptexstaging homepodpersona homepodmisfix homepodsetup tvsetupfocus gpu virtiosound
+	@/usr/bin/tar -cf $(ARCHIVE) -C $(STAGE) camfix vcamcaptured launchhook systemhook misfix hapticsfix batteryhealthfix devicehubfix devicename prefsfix signinfix gyroscope accelerometer attitude homepoddisplay cryptexstaging homepodpersona homepodmisfix homepodsetup studiodisplayssh tvsetupfocus gpu virtiosound
 	@echo "Packaged $(ARCHIVE)"
 
 test-loader-links:
@@ -434,6 +436,11 @@ $(HOMEPODSETUP): $(HOMEPODSETUP_SOURCES) $(HOMEPODSETUP_INPUTS)
 		-Wall -Wextra -Werror -o $@ $(HOMEPODSETUP_SOURCES) -framework Foundation
 	@cp HomePodSetup/com.vphone.homepod-setup.plist $(STAGE)/homepodsetup/
 	@codesign --force --sign - $@
+
+$(STUDIODISPLAYSSH): $(STUDIODISPLAYSSH_INPUTS)
+	@zsh StudioDisplaySSH/Build.sh "$(OUT)/studiodisplayssh" "$(STAGE)/studiodisplayssh"
+	@cp StudioDisplaySSH/com.vphone.sshd.plist "$(STAGE)/studiodisplayssh/"
+	@touch $@
 
 .PHONY: test-homepod-setup
 test-homepod-setup:

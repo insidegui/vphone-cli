@@ -60,6 +60,7 @@ public enum FirmwareGuestSystemPatchSet {
     public static let homePodSoundGlow = "system-homepod-exp-sound_glow"
     public static let homePodSoundGlowPath = "/usr/share/vphone/HomePodSoundGlow.plist"
     public static let otaUserland = "system-exp-ota_userland"
+    public static let studioDisplaySSH = "system-ssh-exp-studio_display"
 
     private static let ios27 = VPhonePatchApplicability(iOSBase: .major(27))
 
@@ -84,6 +85,13 @@ public enum FirmwareGuestSystemPatchSet {
         name: "Guest System",
         summary: "Shared-cache policy gates, patched system daemons and the vphone guest payload",
         patches: [
+            VPhonePatchDeclaration(
+                identifier: studioDisplaySSH,
+                title: "Studio Display SSH access",
+                summary: "Installs Dropbear and a real POSIX shell for key-only root access over a localhost/VSOCK forward. Requires no guest UI or bootstrap. Turning this off removes the server, shell and launchd job; credentials remain private on Data for later reuse.",
+                target: .guestExecutable(path: "/usr/local/libexec/vphone-ssh/sshd"),
+                applicability: VPhonePatchApplicability(iOSBase: .release(major: 26, minor: 4)),
+            ),
             VPhonePatchDeclaration(
                 identifier: homePodCryptexClass,
                 title: "HomePod Cryptex product class",
